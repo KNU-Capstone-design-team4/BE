@@ -1,0 +1,1 @@
+# 데이터베이스에서 데이터를 생성(Create), 조회(Read), 수정(Update), 삭제(Delete)하는 함수들을 # app/crud.py
