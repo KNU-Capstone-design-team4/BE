@@ -2,42 +2,43 @@
 # app/schemas.py
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 # =================================================================
 #                         사용자 (User)
 # =================================================================
 
-# 회원가입 시 받을 데이터 (Request)
-class UserCreate(BaseModel):
-    username: str
+# 회원가입 요청 시 사용
+class UserSignUp(BaseModel):
+    """
+    Supabase auth.sign_up()에 필요한 사용자 정보를 정의합니다.
+    """
     email: EmailStr
     password: str
+    username: str 
+    name: Optional[str] = None  # Supabase user_metadata에 저장될 이름
+    phone: Optional[str] = None # Supabase user_metadata에 저장될 전화번호
 
-# 로그인 시 받을 데이터 (Request)
+# 로그인 요청 시 사용
 class UserLogin(BaseModel):
-    email: EmailStr
+    """
+    Supabase auth.sign_in_with_password()에 필요한 자격 증명을 정의합니다.
+    """
+    email: str
     password: str
 
-# 클라이언트로 보낼 사용자 정보 (Response) - 비밀번호 제외
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: EmailStr
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
-# =================================================================
-#                         인증 (Token)
-# =================================================================
 
-# 로그인 성공 시 보낼 JWT 토큰 정보 (Response)
-class Token(BaseModel):
+## 2. 인증 응답 스키마 (서버 -> 클라이언트)
+
+class TokenResponse(BaseModel):
+    """
+    로그인 성공 시 API 응답 본문의 형식을 정의합니다.
+    (토큰은 HTTPOnly 쿠키로도 전달되지만, API 응답에도 포함될 수 있음)
+    """
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
 
 
 # =================================================================

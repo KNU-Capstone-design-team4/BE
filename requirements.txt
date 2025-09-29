@@ -48,3 +48,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 python-docx
 openai
+supabase

@@ -1,10 +1,11 @@
 # 모든 라우터를 모아 최종 FastAPI 앱을 만듬
 # app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, status, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-
 from .database import engine, Base
 from .routers import users, contracts
+from app.dependencies import get_current_user # 인증 테스트용으로 사용
 
 # FastAPI 애플리케이션 생성
 app = FastAPI(
