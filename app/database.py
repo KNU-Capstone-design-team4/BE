@@ -40,6 +40,11 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL)
+# connect_args를 추가하여 prepared statement 캐시를 비활성화합니다.
+'''engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"statement_cache_size": 0}
+)'''
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 

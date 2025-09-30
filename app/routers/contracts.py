@@ -5,20 +5,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from .. import crud, schemas, models, services # services.py를 만들어 AI 로직을 넣을 예정
 from ..database import get_db
-from ..dependencies import get_current_user
+from ..dependencies import verify_supabase_token 
 from docx import Document
 
 router = APIRouter(
     prefix="/api/contracts",
     tags=["contracts"],
-    dependencies=[Depends(get_current_user)] # 이 라우터의 모든 API는 로그인이 필요함
+    dependencies=[Depends(verify_supabase_token)] # 이 라우터의 모든 API는 로그인이 필요함
 )
 
 @router.post("", response_model=schemas.ContractDetail, status_code=status.HTTP_201_CREATED)
 async def create_new_contract(
     contract_data: schemas.ContractCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(verify_supabase_token)
 ):
     """
     ### 새 계약서 생성
@@ -31,7 +31,7 @@ async def create_new_contract(
 @router.get("", response_model=List[schemas.ContractInfo])
 async def get_my_contracts(
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(verify_supabase_token)
 ):
     """
     ### 내 계약서 목록 조회
@@ -44,7 +44,7 @@ async def get_my_contracts(
 async def get_contract_details(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(verify_supabase_token)
 ):
     """
     ### 특정 계약서 상세 조회
@@ -61,7 +61,7 @@ async def chat_with_bot(
     contract_id: int,
     chat_data: schemas.ChatRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(verify_supabase_token)
 ):
     """
     ### 챗봇과 대화 (계약서 업데이트)
@@ -80,7 +80,7 @@ async def chat_with_bot(
 async def download_contract(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(verify_supabase_token)
 ):
     """
     ### 계약서 다운로드

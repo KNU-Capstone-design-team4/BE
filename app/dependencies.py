@@ -1,61 +1,72 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+# ❗️ 변경점: OAuth2PasswordBearer 대신 HTTPBearer와 HTTPAuthorizationCredentials를 import
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import crud, models
-from .database import get_db
+from .database import get_db, supabase_client  # supabase_client도 import합니다
 # security.py에서 JWT 관련 설정을 모두 가져옵니다.
 from .security import ALGORITHM, SECRET_KEY
 
-# FastAPI가 요청 헤더에서 'Authorization: Bearer [토큰]'을 찾아 토큰을 추출하게 합니다.
-# tokenUrl은 실제 로그인 API의 경로를 가리킵니다.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+# ❗️ 변경점: oauth2_scheme 대신 bearer_scheme을 사용합니다.
+bearer_scheme = HTTPBearer()
 
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> models.User:
-    """
-    SQLAlchemy ORM을 위한 JWT 토큰 검증 및 사용자 반환 의존성.
-    이 함수를 필요로 하는 모든 API는 자동으로 로그인 인증을 거치게 됩니다.
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        # 토큰을 해독하여 payload를 얻습니다.
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # payload에서 이메일(subject)을 추출합니다.
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except JWTError:
-        # 토큰이 유효하지 않으면 예외를 발생시킵니다.
-        raise credentials_exception
-    
-    # 이메일로 DB에서 사용자를 찾습니다.
-    user = await crud.get_user_by_email(db, email=email)
-    
-    if user is None:
-        # 사용자가 존재하지 않으면 예외를 발생시킵니다.
-        raise credentials_exception
-    
-    # 모든 검증을 통과하면 사용자 객체를 반환합니다.
-    return user
-
-async def verify_supabase_token(token: str = Depends(oauth2_scheme)):
+'''async def verify_supabase_token(
+    # ❗️ 변경점: 이 함수도 일관성을 위해 bearer_scheme을 사용하도록 수정
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+):
     """
     Supabase 클라이언트를 위한 JWT 토큰 검증 의존성.
     """
+    # ❗️ 추가점: credentials 객체에서 실제 토큰 문자열을 추출합니다.
+    token = credentials.credentials
     try:
         # Supabase 클라이언트를 사용하여 토큰으로부터 사용자 정보를 가져옵니다.
-        user_response = supabase.auth.get_user(token)
+        user_response = supabase_client.auth.get_user(token)
+        # user_response.user가 None일 경우를 대비한 예외 처리 추가
+        if not user_response.user:
+            raise Exception("User not found for the provided token.")
         return user_response.user.dict()
     except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Supabase authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )'''
+# 인증(authorize)과정이 계속 실패해서 디버깅용으로 함수를 만듦
+async def verify_supabase_token(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
+):
+    """
+    Supabase 클라이언트를 위한 JWT 토큰 검증 의존성.
+    """
+    # --- 디버깅 코드 시작 ---
+    print("=========================================================")
+    print(">>> DEBUG: 'verify_supabase_token' 함수가 호출되었습니다.")
+    # --- 디버깅 코드 끝 ---
+
+    token = credentials.credentials
+
+    # --- 디버깅 코드 시작 ---
+    # 토큰이 너무 길기 때문에 앞 30자만 출력해봅니다.
+    print(f">>> DEBUG: 서버가 받은 토큰 (앞 30자): {token[:30]}...")
+    # --- 디버깅 코드 끝 ---
+    try:
+        user_response = supabase_client.auth.get_user(token)
+        
+        # --- 디버깅 코드 시작 ---
+        print(f">>> DEBUG: Supabase 응답 성공! User: {user_response.user.email if user_response.user else '없음'}")
+        # --- 디버깅 코드 끝 ---
+
+        if not user_response.user:
+            raise Exception("User not found for the provided token.")
+        return user_response.user.dict()
+    except Exception as e:
+        # --- 디버깅 코드 시작 ---
+        print(f">>> DEBUG: 'verify_supabase_token' 함수에서 예외 발생: {e}")
+        print("=========================================================")
+        # --- 디버깅 코드 끝 ---
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Supabase authentication credentials",
