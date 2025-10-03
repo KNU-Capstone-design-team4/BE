@@ -42,21 +42,21 @@ async def verify_supabase_token(
     Supabase 클라이언트를 위한 JWT 토큰 검증 의존성.
     """
     # --- 디버깅 코드 시작 ---
-    print("=========================================================")
-    print(">>> DEBUG: 'verify_supabase_token' 함수가 호출되었습니다.")
+    #print("=========================================================")
+    #print(">>> DEBUG: 'verify_supabase_token' 함수가 호출되었습니다.")
     # --- 디버깅 코드 끝 ---
 
     token = credentials.credentials
 
     # --- 디버깅 코드 시작 ---
     # 토큰이 너무 길기 때문에 앞 30자만 출력해봅니다.
-    print(f">>> DEBUG: 서버가 받은 토큰 (앞 30자): {token[:30]}...")
+    #print(f">>> DEBUG: 서버가 받은 토큰 (앞 30자): {token[:30]}...")
     # --- 디버깅 코드 끝 ---
     try:
         user_response = supabase_client.auth.get_user(token)
         
         # --- 디버깅 코드 시작 ---
-        print(f">>> DEBUG: Supabase 응답 성공! User: {user_response.user.email if user_response.user else '없음'}")
+        #print(f">>> DEBUG: Supabase 응답 성공! User: {user_response.user.email if user_response.user else '없음'}")
         # --- 디버깅 코드 끝 ---
 
         if not user_response.user:
