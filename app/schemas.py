@@ -3,6 +3,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, Dict, Any
+from uuid import UUID
 
 # =================================================================
 #                         사용자 (User)
@@ -51,7 +52,7 @@ class ContractCreate(BaseModel):
 
 # 내 계약서 목록 조회 시 보낼 각 계약서의 기본 정보 (Response)
 class ContractInfo(BaseModel):
-    id: int
+    id: UUID
     contract_type: str
     updated_at: datetime
 
@@ -60,12 +61,12 @@ class ContractInfo(BaseModel):
         
 # 특정 계약서 상세 조회 시 보낼 전체 정보 (Response)
 class ContractDetail(BaseModel):
-    id: int
+    id: UUID
     contract_type: str
     content: Optional[Dict[str, Any]] = None # JSON 필드는 Dict로 표현
     status: str
     updated_at: datetime
-    owner_id: int
+    owner_id: UUID
 
     class Config:
         from_attributes = True

@@ -6,7 +6,8 @@ from typing import List
 from .. import crud, schemas, models, services # services.py를 만들어 AI 로직을 넣을 예정
 from ..database import get_db
 from ..dependencies import verify_supabase_token 
-from docx import Document
+from uuid import UUID
+from urllib.parse import quote
 
 router = APIRouter(
     prefix="/api/contracts",
@@ -18,7 +19,8 @@ router = APIRouter(
 async def create_new_contract(
     contract_data: schemas.ContractCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(verify_supabase_token)
+    #current_user: models.User = Depends(verify_supabase_token)
+    current_user: dict = Depends(verify_supabase_token)
 ):
     """
     ### 새 계약서 생성
@@ -26,49 +28,52 @@ async def create_new_contract(
     - 요청 Body에 `contract_type` (예: "근로계약서")을 담아 보냅니다.
     - 성공 시 생성된 계약서의 상세 정보를 반환합니다.
     """
-    return await crud.create_contract(db=db, contract=contract_data, user_id=current_user.id)
+    return await crud.create_contract(db=db, contract=contract_data, user_id=UUID(current_user['id']))
 
 @router.get("", response_model=List[schemas.ContractInfo])
 async def get_my_contracts(
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(verify_supabase_token)
+    #current_user: models.User = Depends(verify_supabase_token)
+    current_user: dict = Depends(verify_supabase_token)
 ):
     """
     ### 내 계약서 목록 조회
     - 현재 **로그인된 사용자**가 작성한 모든 계약서의 목록을 조회합니다.
     - 마이페이지 기능에 사용됩니다.
     """
-    return await crud.get_contracts_by_owner(db=db, user_id=current_user.id)
+    return await crud.get_contracts_by_owner(db=db, user_id=UUID(current_user['id']))
 
 @router.get("/{contract_id}", response_model=schemas.ContractDetail)
 async def get_contract_details(
-    contract_id: int,
+    contract_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(verify_supabase_token)
+    #current_user: models.User = Depends(verify_supabase_token)
+    current_user: dict = Depends(verify_supabase_token)
 ):
     """
     ### 특정 계약서 상세 조회
     - 특정 계약서의 상세 내용을 조회합니다.
     - 다른 사람의 계약서는 조회할 수 없습니다.
     """
-    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=current_user.id)
+    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=UUID(current_user['id']))
     if db_contract is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
     return db_contract
 
 @router.post("/{contract_id}/chat", response_model=schemas.ChatResponse)
 async def chat_with_bot(
-    contract_id: int,
+    contract_id: UUID,
     chat_data: schemas.ChatRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(verify_supabase_token)
+    #current_user: models.User = Depends(verify_supabase_token)
+    current_user: dict = Depends(verify_supabase_token)
 ):
     """
     ### 챗봇과 대화 (계약서 업데이트)
     - 사용자의 채팅 메시지를 받아 계약서 내용을 업데이트하고, 다음 질문을 반환합니다.
     - **실시간 계약서 업데이트**의 핵심 API입니다.
     """
-    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=current_user.id)
+    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=UUID(current_user['id']))
     if db_contract is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
 
@@ -78,15 +83,16 @@ async def chat_with_bot(
 
 @router.get("/{contract_id}/download")
 async def download_contract(
-    contract_id: int,
+    contract_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: models.User = Depends(verify_supabase_token)
+    #current_user: models.User = Depends(verify_supabase_token)
+    current_user: dict = Depends(verify_supabase_token)
 ):
     """
     ### 계약서 다운로드
     - 완성된 계약서를 **.docx (워드)** 파일로 다운로드합니다.
     """
-    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=current_user.id)
+    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=UUID(current_user['id']))
     if db_contract is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
     
@@ -98,8 +104,19 @@ async def download_contract(
     document.save(buffer)
     buffer.seek(0)
     
+    # 1. 원본 파일 이름을 생성합니다.
     filename = f"{db_contract.contract_type}_{db_contract.id}.docx"
-    headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
     
+    # 2. 파일 이름을 UTF-8로 URL 인코딩합니다.
+    encoded_filename = quote(filename)
+
+    # 3. 표준에 맞는 Content-Disposition 헤더를 설정합니다.
+    headers = {
+        'Content-Disposition': f'attachment; filename*=UTF-8\'\'{encoded_filename}'
+    }
+    
+    '''filename = f"{db_contract.contract_type}_{db_contract.id}.docx"
+    headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
+    '''
     return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
 
