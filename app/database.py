@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from uuid import uuid4
 
 # .env 파일에서 환경 변수를 로드합니다.
 load_dotenv()
@@ -39,12 +40,31 @@ if not SQLALCHEMY_DATABASE_URL:
 if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+
+# 고유한 Prepared Statement 이름을 생성하는 함수
+def get_unique_statement_name():
+    # '__asyncpg_UUID_STRING__' 형태의 고유 이름 생성
+    return f"__asyncpg_{uuid4().hex}__"
+
+
+# SQLAlchemy 엔진은 한 번만 생성하며, 두 가지 해결책을 모두 적용해야 합니다.
+engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={
+        "statement_cache_size": 0, # 캐시 비활성화
+        "prepared_statement_name_func": get_unique_statement_name, # 고유 이름 부여 (Supabase에서 필수)
+    },
+    # Supabase 환경에서 충돌을 더 줄이려면 NullPool 사용을 고려할 수 있습니다.
+    # poolclass=NullPool
+)
+
+'''
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL)
 # connect_args를 추가하여 prepared statement 캐시를 비활성화합니다.
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"statement_cache_size": 0}
-)
+)''' #10월3일 수정 12:51수정내용 
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 

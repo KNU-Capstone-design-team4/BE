@@ -7,12 +7,39 @@ from . import crud, models, schemas
 # 프론트엔드와 이 field_id를 기준으로 화면을 업데이트하기로 약속해야 합니다.
 CONTRACT_SCENARIOS = {
     "근로계약서": [
-        {"field_id": "employee_name", "question": "먼저 근로자의 성함은 무엇인가요?"},
-        {"field_id": "employee_resident_number", "question": "근로자의 주민등록번호를 알려주세요."},
-        {"field_id": "employee_address", "question": "근로자의 주소는 어디인가요?"},
-        {"field_id": "salary_amount", "question": "월 급여는 얼마로 계약하셨나요?"},
-        # ... 추가 질문들 ...
-    ],
+    # 1. 당사자 정보 (근로계약의 주체)
+    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 고용주(대표자)의 성함은 무엇인가요?"},
+    {"field_id": "business_name", "question": "고용주가 운영하는 사업체명(회사 이름)을 알려주세요."},
+    {"field_id": "business_phone", "question": "사업체의 대표 연락처(전화번호)를 입력해주세요."},
+    {"field_id": "business_address", "question": "사업장의 소재지(주소)는 어디인가요?"},
+
+    {"field_id": "employee_name", "question": "이제 근로자(본인)의 성함은 무엇인가요?"},
+    {"field_id": "employee_resident_number", "question": "근로자의 주민등록번호를 알려주세요."},
+    {"field_id": "employee_address", "question": "근로자의 현 주소는 어디인가요?"},
+    {"field_id": "employee_phone", "question": "근로자의 연락처(전화번호)를 입력해주세요."},
+
+    # 2. 근로계약 기간 및 장소 (계약의 범위)
+    {"field_id": "contract_date", "question": "이 근로계약서를 최종적으로 계약한 날짜(작성일)는 언제인가요?"},
+    {"field_id": "start_date", "question": "실제 근로를 시작하는 날(근로개시일)은 언제인가요(예: 2025년 1월 1일)?"},
+    {"field_id": "end_date", "question": "근로 종료일이 정해져 있다면 언제인가요? (정규직이거나 기간이 정해지지 않았다면 '기간 없음'이라고 답해주세요.)"},
+    {"field_id": "work_location", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요."},
+    {"field_id": "job_description", "question": "근로자가 수행할 업무 내용(직종)은 무엇인가요?"},
+
+    # 3. 근로시간 및 휴게시간
+    {"field_id": "work_day", "question": "일주일에 몇 요일(예: 월요일부터 금요일까지)을 근무하나요?"},
+    {"field_id": "start_time", "question": "하루 근로를 시작하는 소정근로시간(시작 시간)을 알려주세요."},
+    {"field_id": "end_time", "question": "하루 근로를 마치는 소정근로시간(종료 시간)을 알려주세요."},
+    {"field_id": "rest_time", "question": "하루 중 주어지는 휴게시간은 총 몇 분인가요?"},
+
+    # 4. 임금 (급여)
+    {"field_id": "salary_amount", "question": "월 지급되는 총 임금(월 급여)은 얼마인가요?"},
+    {"field_id": "hourly_wage", "question": "시급 또는 일급이 별도로 있다면 얼마인가요? (없다면 '없음'이라고 답해주세요.)"},
+    {"field_id": "bonus_amount", "question": "별도로 지급되는 상여금이 있다면 얼마인가요? (없다면 '없음'이라고 답해주세요.)"},
+    {"field_id": "salary_payment_date", "question": "임금은 매월 며칠에 지급되나요?"},
+    {"field_id": "payment_method", "question": "임금 지급 방법은 근로자 명의 계좌이체인가요, 아니면 직접 현금 지급인가요?"}
+    
+    # 이 외에 연차유급휴가, 사회보험 등의 질문을 추가할 수 있습니다.
+],
     "임대차계약서": [
         {"field_id": "lessee_name", "question": "안녕하세요! 계약서 작성을 시작하겠습니다. 임차인의 성함은 무엇인가요?"},
         {"field_id": "property_address", "question": "계약할 부동산의 정확한 주소는 어디인가요?"},
