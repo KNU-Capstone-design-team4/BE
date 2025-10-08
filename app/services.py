@@ -61,6 +61,12 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
     scenario = CONTRACT_SCENARIOS.get(contract.contract_type, [])
     current_content = contract.content or {}
     
+    # merge test
+    # 1. 현재 계약서의 시나리오와 진행 상태를 파악합니다.
+    # scenario = CONTRACT_SCENARIOS.get(contract.contract_type, [])
+    # current_content = contract.content or {}
+    
+    # 2. 현재 답변이 어떤 질문에 대한 것인지 찾습니다.
     current_question_item = None
     for item in scenario:
         if item["field_id"] not in current_content:
