@@ -35,9 +35,8 @@ app = FastAPI(lifespan=lifespan)
 # CORS 미들웨어 설정
 # 프론트엔드 주소 (예: http://localhost:3000) 에서 오는 요청을 허용합니다.
 origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    # 배포된 프론트엔드 주소가 있다면 여기에 추가합니다.
+    "http://localhost:5173"
+    "http://127.0.0.1:5173"
 ]
 
 app.add_middleware(
