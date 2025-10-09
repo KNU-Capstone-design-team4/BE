@@ -4,7 +4,7 @@ __pycache__/
 *.pyc
 
 # Environment files
-#.env
+.env
 
 # IDE / Editor specific files
 .vscode/

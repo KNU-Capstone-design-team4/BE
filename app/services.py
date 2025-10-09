@@ -2,6 +2,7 @@ import os
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 from docx import Document
+from docxtpl import DocxTemplate
 
 from . import crud, models, schemas
 
@@ -89,7 +90,7 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
                 "For example, if the user says 'My name is John Doe', you should only return 'John Doe'. "
                 "If the user says 'I work 50 hours a week', you should only return '50 hours'."
             )
-            
+
             # OpenAI API 호출
             response = await client.chat.completions.create(
                 model="gpt-4o",  # 또는 "gpt-3.5-turbo"
@@ -134,9 +135,12 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
         updated_field=updated_field_info,
         is_finished=is_finished,
         full_contract_data=final_content
-    )
+    ) 
 
-def create_docx_from_contract(contract: models.Contract):
+
+
+
+'''def create_docx_from_contract(contract: models.Contract):
     """
     DB에 저장된 계약서 정보로 .docx (워드) 문서를 생성합니다.
     """
@@ -159,4 +163,32 @@ def create_docx_from_contract(contract: models.Contract):
         label = field_id_to_label.get(field_id, field_id) # 한글 레이블이 없으면 원래 id 사용
         document.add_paragraph(f"{label}: {value}")
         
-    return document
+    return document'''
+
+def create_docx_from_contract(contract: models.Contract):
+    """
+    DB에 저장된 계약서 정보로 .docx (워드) 문서를 생성합니다.
+    """
+    
+    # 1. 템플릿 경로 설정 (프로젝트 루트의 templates 폴더 기준)
+    # 현재 서비스 파일이 app 폴더 안에 있다면, 상위 폴더(BE)로 가서 templates를 찾습니다.
+    # 이 경로는 실행 환경에 따라 정확히 맞춰주셔야 합니다!
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(current_dir, "..", "templates", "working.docx")
+    print(f"DEBUG: 시도 경로: {template_path}")
+    
+    # docxtpl 객체 생성 및 템플릿 로드
+    try:
+        doc = DocxTemplate(template_path)
+    except FileNotFoundError:
+        # 파일이 없으면 에러를 발생시키거나 빈 문서를 반환하는 등 적절히 처리해야 합니다.
+        raise FileNotFoundError(f"템플릿 파일을 찾을 수 없습니다: {template_path}. 경로를 확인해주세요.")
+
+    # 2. DB의 JSON 데이터를 렌더링 Context로 사용
+    context = contract.content or {} 
+    
+    # 3. 템플릿에 데이터 채우기 (렌더링)
+    doc.render(context)
+    
+    # 완성된 docxtpl 객체를 반환합니다.
+    return doc 

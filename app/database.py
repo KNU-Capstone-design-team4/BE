@@ -79,3 +79,11 @@ async def get_db():
     async with async_session() as session:
         yield session
 
+'''async def get_db():
+    async with SessionLocal() as session:
+        try:
+            yield session
+        finally:
+            # 🚨 세션을 닫아주는 부분이 반드시 필요합니다.
+            await session.close() # 또는 session.close() (동기 DB 사용 시)'''
+
