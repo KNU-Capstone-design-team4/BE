@@ -27,7 +27,7 @@ router = APIRouter(
 
 # @app.post 대신 @router.post를 사용합니다.
 @router.post("/signup", status_code=status.HTTP_200_OK)
-
+    
 async def signup(new_user: UserSignUp):
     try:
         # 1. Supabase Auth에 사용자 생성
