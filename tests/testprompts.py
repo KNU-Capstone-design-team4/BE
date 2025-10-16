@@ -208,6 +208,9 @@ async def run_advanced_rag_test(question: str, relevant_tips: str):
     # ... (기존 코드와 동일)
     system_prompt = f"""
     당신은 주어진 '참고 자료'만을 기반으로 답변하는 AI 노무사입니다. 다음 규칙을 엄격히 따르세요...
+    1.  **[생각 단계]:** 먼저 사용자의 질문을 분석하고, '참고 자료'에서 관련된 모든 조항을 찾습니다. 이 조항들을 어떻게 조합해야 질문에 답할 수 있을지 단계별로 논리를 구성합니다.
+    2.  **[답변 생성 단계]:** '생각 단계'에서 정리된 논리를 바탕으로, 사용자에게 최종적인 답변을 친절하고 명확하게 생성합니다.
+    3.  **[출처 명시 단계]:** 답변 내용의 근거가 된 '참고 자료'의 **'팁 번호'**를 문장 끝에 **(출처: 팁 N번)** 또는 **(출처: 팁 N번, M번)** 과 같은 형식으로 **반드시** 포함해야 합니다.
     """
     response = await client.chat.completions.create(model="gpt-4o", messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": question}], temperature=0)
     return response.choices[0].message.content
@@ -218,7 +221,7 @@ async def main():
     
     # 이 값을 조정하여 '관련성'의 기준을 설정합니다. (0.0 ~ 1.0)
     # 0.75 이상이면 꽤 관련성이 높다고 판단
-    SIMILARITY_THRESHOLD = 0.3
+    SIMILARITY_THRESHOLD = 0.1
     ##########################관련성 기준###########################
 
     print("팁 목록 임베딩을 생성합니다...")
