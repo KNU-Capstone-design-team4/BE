@@ -9,6 +9,7 @@ from . import crud, models, schemas
 # .env에 추가한 API키를 사용하도록 설정
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+
 # 계약서 종류별로 필요한 필드와 질문 순서를 정의합니다.
 # 프론트엔드와 이 field_id를 기준으로 화면을 업데이트하기로 약속해야 합니다.
 #######계약서의 체크표시 해주는 코드는 아직 구성하지 않았음(2025.10.16)
@@ -121,7 +122,6 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
                 "If the user says 'I work 50 hours a week', you should only return '50 hours'."
             )
 
-            # OpenAI API 호출
             response = await client.chat.completions.create(
                 model="gpt-4o",  # 또는 "gpt-3.5-turbo"
                 messages=[
@@ -130,6 +130,30 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
                 ],
                 temperature=0, # 일관된 답변을 위해 0으로 설정
             )
+            ######## zero shot프롬프트 
+
+            '''####### few shot프롬프트
+            messages_list = [
+                {"role": "system", "content": system_prompt},
+            ]
+
+            # 2. Few-Shot 예시 (모범 답안)을 추가합니다.
+            # list.extend() 또는 '+' 연산자로 리스트를 합칩니다.
+            messages_list.extend(FEWSHOT_EXAMPLES)
+
+            # 3. 실제 사용자 질문을 마지막에 추가합니다.
+            messages_list.append({"role": "user", "content": user_message})
+
+
+            # 4. API 호출 시 최종 리스트를 사용합니다.
+            response = await client.chat.completions.create(
+                model="gpt-4o",  
+                # 🌟 Few-Shot 예시가 포함된 messages_list를 전달 🌟
+                messages=messages_list, 
+                temperature=0, 
+            )
+            ####### few shot프롬프트 '''
+
             extracted_value = response.choices[0].message.content.strip()
 
         except Exception as e:
