@@ -13,6 +13,14 @@ load_dotenv()
 # =================================================================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# ⭐️ 아래 두 줄의 print 코드를 추가해주세요. ⭐️
+print("================= DEBUGGING .env VALUES =================")
+print(f"[*] SUPABASE_URL loaded by App: {SUPABASE_URL}")
+print(f"[*] SUPABASE_KEY loaded by App: {SUPABASE_KEY}")
+print("=========================================================")
+
+
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 # Supabase 클라이언트용 환경 변수가 모두 있는지 확인합니다.
