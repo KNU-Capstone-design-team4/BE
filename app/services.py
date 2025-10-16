@@ -9,6 +9,7 @@ from . import crud, models, schemas
 # .env에 추가한 API키를 사용하도록 설정
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+
 # 계약서 종류별로 필요한 필드와 질문 순서를 정의합니다.
 # (기존 CONTRACT_SCENARIOS는 그대로 유지)
 CONTRACT_SCENARIOS = {
@@ -108,18 +109,21 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
 
     updated_field_info = None
     if current_question_item:
+        # --- ❗️❗️❗️ 핵심 수정 부분 시작 ❗️❗️❗️ ---
+        
+        # 3. AI(GPT)를 호출하여 사용자 메시지에서 핵심 정보를 추출합니다.
+        #    "제 이름은 홍길동입니다." -> "홍길동"
         try:
-            # ⭐️ 2. API에 보낼 최종 프롬프트 구성
-            #    기본 템플릿에 현재 상황(질문+사용자답변)을 추가하여 완성합니다.
-            final_prompt = (
-                f"{FEW_SHOT_PROMPT_TEMPLATE}\n"
-                f"[Question]: {current_question_item['question']}\n"
-                f"[User's Answer]: {user_message}\n"
-                f"[Your Answer]:"
+            # GPT에게 역할과 목표를 부여하는 프롬프트(Prompt)
+            system_prompt = (
+                "You are a helpful assistant that extracts key information from a user's sentence. "
+                "The user will provide an answer to a question. "
+                f"The question is: '{current_question_item['question']}'. "
+                "Please extract only the essential value from the user's answer. "
+                "For example, if the user says 'My name is John Doe', you should only return 'John Doe'. "
+                "If the user says 'I work 50 hours a week', you should only return '50 hours'."
             )
 
-            # ⭐️ 3. OpenAI API 호출 방식 변경
-            #    System 프롬프트 대신 User 메시지에 전체 Few-shot 프롬프트를 전달합니다.
             response = await client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -128,6 +132,30 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
                 temperature=0,
                 stop=["---"] # 예시와 실제 답변을 구분하는 '---'가 나오면 생성을 중단시켜 안정성을 높입니다.
             )
+            ######## zero shot프롬프트 
+
+            '''####### few shot프롬프트
+            messages_list = [
+                {"role": "system", "content": system_prompt},
+            ]
+
+            # 2. Few-Shot 예시 (모범 답안)을 추가합니다.
+            # list.extend() 또는 '+' 연산자로 리스트를 합칩니다.
+            messages_list.extend(FEWSHOT_EXAMPLES)
+
+            # 3. 실제 사용자 질문을 마지막에 추가합니다.
+            messages_list.append({"role": "user", "content": user_message})
+
+
+            # 4. API 호출 시 최종 리스트를 사용합니다.
+            response = await client.chat.completions.create(
+                model="gpt-4o",  
+                # 🌟 Few-Shot 예시가 포함된 messages_list를 전달 🌟
+                messages=messages_list, 
+                temperature=0, 
+            )
+            ####### few shot프롬프트 '''
+
             extracted_value = response.choices[0].message.content.strip()
 
         except Exception as e:
