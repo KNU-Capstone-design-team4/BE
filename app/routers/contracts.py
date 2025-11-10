@@ -52,12 +52,32 @@ async def get_contract_details(
 ):
     """
     ### 특정 계약서 상세 조회
-    - 특정 계약서의 상세 내용을 조회합니다.
-    - 다른 사람의 계약서는 조회할 수 없습니다.
+    - 계약서의 현재 상태('status')와
+    - '미완성' 상태일 경우 이어서 물어볼 'next_question'을 함께 반환합니다.
     """
-    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=UUID(current_user['id']))
+    user_id = UUID(current_user['id'])
+    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=user_id)
     if db_contract is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
+    
+    # -----------------------------------------------------------
+    # ❗️ [핵심 로직 추가] ❗️
+    # -----------------------------------------------------------
+    # 1. services.py에 다음 질문을 찾는 헬퍼 함수 호출
+    next_question_text = services.find_next_question(db_contract)
+
+    # 2. 계약서 상태 업데이트 (필요시)
+    current_status = db_contract.status
+    if next_question_text is None and db_contract.status == "in_progress":
+        # 다음 질문이 없는데 상태가 '진행중'이면 '완료'로 변경
+        db_contract = await crud.update_contract_status(db, db_contract, "completed")
+        current_status = "completed"
+
+    # 3. Pydantic 스키마가 from_attributes=True 이므로,
+    #    조회한 객체에 동적으로 속성을 추가하여 반환할 수 있습니다.
+    db_contract.next_question = next_question_text
+    db_contract.status = current_status # DB에서 읽어온 status (또는 방금 변경한 status)
+    
     return db_contract
 
 @router.post("/{contract_id}/chat", response_model=schemas.ChatResponse)

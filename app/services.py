@@ -91,7 +91,6 @@ CONTRACT_SCENARIOS = {
     ]
 }
 
-<<<<<<< HEAD
 # ⭐️ 1. 개선된 Few-Shot 프롬프트 템플릿 정의
 FEW_SHOT_PROMPT_TEMPLATE = """
 # ROLE (역할)
@@ -129,8 +128,6 @@ You are an expert assistant specializing in extracting only the essential, core 
 [Your Answer]: 2025년 10월 16일
 ---
 """
-=======
->>>>>>> e3cf571c6392936469162a3ead417507dec1b3e3
 
 async def get_tip_embeddings():
     """팁 목록 임베딩을 (최초 1회) 생성하고 캐시합니다."""
@@ -259,10 +256,6 @@ async def extract_value_from_answer(user_message: str, question: str) -> str:
 
     final_content = contract.content or {}
 
-<<<<<<< HEAD
-=======
-    # 6. 다음 질문을 찾거나, 모든 질문이 완료되었는지 확인합니다.
->>>>>>> e3cf571c6392936469162a3ead417507dec1b3e3
     next_question = None
     for item in scenario:
         if item["field_id"] not in final_content:
@@ -275,19 +268,27 @@ async def extract_value_from_answer(user_message: str, question: str) -> str:
     else:
         reply_message = next_question
         
-<<<<<<< HEAD
-=======
-    # 7. 최종 응답을 프론트엔드에 보낼 형태로 구성합니다.
->>>>>>> e3cf571c6392936469162a3ead417507dec1b3e3
     return schemas.ChatResponse(
         reply=reply_message,
         updated_field=updated_field_info,
         is_finished=is_finished,
         full_contract_data=final_content
-<<<<<<< HEAD
-    )
-=======
-    ) '''
+    )'''
+
+# ❗️ GET API에서도 사용할 수 있도록 "다음 질문" 찾는 로직을 별도 함수로 분리
+def find_next_question(contract: models.Contract) -> Optional[str]:
+    """
+    계약서 객체를 받아, 다음에 물어볼 질문 텍스트를 반환합니다.
+    (질문이 모두 완료되었으면 None을 반환)
+    """
+    scenario = CONTRACT_SCENARIOS.get(contract.contract_type, [])
+    current_content = contract.content or {}
+    
+    for item in scenario:
+        if item["field_id"] not in current_content:
+            return item["question"]  # 👈 다음에 물어볼 질문 텍스트
+    
+    return None  # 👈 모든 질문이 완료됨
 
 async def process_chat_message(db: AsyncSession, contract: models.Contract, user_message: str) -> schemas.ChatResponse:
     """
@@ -399,9 +400,7 @@ async def process_chat_message(db: AsyncSession, contract: models.Contract, user
             is_finished=is_finished,
             full_contract_data=new_content
         )
-
->>>>>>> e3cf571c6392936469162a3ead417507dec1b3e3
-
+    
 def create_docx_from_contract(contract: models.Contract):
     """
     DB에 저장된 계약서 정보로 .docx (워드) 문서를 생성합니다.

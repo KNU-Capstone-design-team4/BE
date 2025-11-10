@@ -67,7 +67,11 @@ class ContractDetail(BaseModel):
     status: str
     updated_at: datetime
     owner_id: UUID
-
+    
+    # ❗️ [추가] 챗봇의 현재 상태를 알려줄 필드
+    status: str  # (예: "in_progress", "completed")
+    next_question: Optional[str] = None # (예: "고용주 성함은?", 완료 시 null)
+    
     class Config:
         from_attributes = True
 
