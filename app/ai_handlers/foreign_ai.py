@@ -523,7 +523,7 @@ async def process_message(
 # -----------------------------------------------------------
 TEMPLATE_FILE = "foreign.docx"
 
-async def render_docx(contract):
+'''async def render_docx(contract):
     # 1) 경로 조합 및 정규화 (절대 경로)
     current_dir = Path(__file__).resolve().parent
     template_path = (current_dir / ".." / ".." / "templates" / TEMPLATE_FILE).resolve()
@@ -568,8 +568,8 @@ async def render_docx(contract):
     # 7) 렌더링
     context = contract.content or {}
     doc.render(context)
-    return doc
-'''async def render_docx(contract):
+    return doc'''
+async def render_docx(contract):
     """통합신청서 템플릿(.docx)을 렌더링해 DocxTemplate 객체로 반환."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(current_dir, "..", "..", "templates", TEMPLATE_FILE)
@@ -586,7 +586,7 @@ async def render_docx(contract):
     doc.render(context)
     return doc
     
-    # docxtpl 객체 생성 및 템플릿 로드
+    '''# docxtpl 객체 생성 및 템플릿 로드
     try:
         doc = DocxTemplate(template_path)
     except FileNotFoundError:

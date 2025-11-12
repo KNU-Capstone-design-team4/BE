@@ -1,4 +1,5 @@
 import io
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,7 +79,26 @@ async def get_contract_details(
     db_contract.next_question = next_question_text
     db_contract.status = current_status # DB에서 읽어온 status (또는 방금 변경한 status)
     
-    return db_contract
+    # ✅ [핵심 추가] HTML 템플릿 읽기
+    html_path = os.path.join(os.path.dirname(__file__), "..", "templates", "working.html")
+    html_path = os.path.abspath(html_path)
+    
+    if not os.path.exists(html_path):
+        raise HTTPException(status_code=500, detail=f"템플릿 파일을 찾을 수 없습니다: {html_path}")
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+    
+     # ContractDetail 스키마를 확장해 templateHtml 필드를 포함시켰다고 가정
+    return {
+        "id": str(db_contract.id),
+        "title": db_contract.title,
+        "status": db_contract.status,
+        "next_question": db_contract.next_question,
+        "data": db_contract.content,
+        "templateHtml": html_content,   # ✅ 프론트에서 미리보기용으로 사용할 HTML
+        "chatHistory": db_contract.chat_history if hasattr(db_contract, "chat_history") else [],
+    }
 
 @router.post("/{contract_id}/chat", response_model=schemas.ChatResponse)
 async def chat_with_bot(

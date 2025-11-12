@@ -69,9 +69,14 @@ class ContractDetail(BaseModel):
     updated_at: datetime
     owner_id: UUID
     
-    # ❗️ [추가] 챗봇의 현재 상태를 알려줄 필드
-    status: str  # (예: "in_progress", "completed")
-    next_question: Optional[str] = None # (예: "고용주 성함은?", 완료 시 null)
+ # ❗️ [추가] 챗봇의 현재 상태
+    next_question: Optional[str] = None  # (예: "고용주 성함은?", 완료 시 null)
+
+    # ✅ [추가] 프론트에서 미리보기용 HTML 템플릿
+    templateHtml: Optional[str] = None   # HTML 문서 전체를 문자열로 반환
+
+    # ✅ [추가] 대화 히스토리 (선택적으로 포함 가능)
+    chatHistory: Optional[List[Dict[str, Any]]] = None
     
     class Config:
         from_attributes = True

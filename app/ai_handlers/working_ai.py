@@ -480,10 +480,17 @@ async def process_message(
 TEMPLATE_FILE = "working.docx"
 
 async def render_docx(contract):
-    """근로계약서 템플릿(.docx)을 렌더링해 DocxTemplate 객체로 반환."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(current_dir, "..", "templates", TEMPLATE_FILE)
+    template_path = os.path.join(current_dir, "..", "..", "templates", TEMPLATE_FILE)
+    
+    # 경로 디버깅용 (서버 콘솔에 실제 경로 출력)
+    print(f"📂 Using template path: {template_path}")
+
+    # 파일 존재 여부 검증
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"❌ Template not found at {template_path}")
 
     doc = DocxTemplate(template_path)
-    doc.render(contract.content or {})
+    context = contract.content or {}
+    doc.render(context)
     return doc
