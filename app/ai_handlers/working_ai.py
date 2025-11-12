@@ -370,8 +370,13 @@ async def process_message(
 
     content = contract.content or {}
 
+    new_chat_history = contract.chat_history.copy() if isinstance(contract.chat_history, list) else []
+    
     # ✅ 1) 다음 질문 찾기
     current_item, current_index = find_next_question(content)
+    
+    # 이 턴(Turn)의 봇 질문을 미리 저장해둡니다. (폼 답변 시 사용)
+    current_bot_question = current_item["question"] if current_item else None
 
     # ✅ 2) 아무 입력 없으면 "시작/재개"
     if not message.strip():
@@ -380,14 +385,16 @@ async def process_message(
                 reply=current_item["question"],
                 updated_field=None,
                 is_finished=False,
-                full_contract_data=content
+                full_contract_data=content,
+                chat_history=new_chat_history
             )
         else:
             return schemas.ChatResponse(
                 reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
                 updated_field=None,
                 is_finished=True,
-                full_contract_data=content
+                full_contract_data=content,
+                chat_history=new_chat_history
             )
 
     # ✅ 3) RAG 여부 판단
@@ -397,6 +404,13 @@ async def process_message(
     if is_legal_question:
         rag = await get_rag_response(message, tips)
 
+        # -----------------------------------------------------------------
+        # ✅ [2. CHAT HISTORY 추가] (RAG 턴 기록)
+        # RAG는 [사용자 질문] -> [봇 답변] 순서입니다.
+        new_chat_history.append({"sender": "user", "message": message})
+        new_chat_history.append({"sender": "bot", "message": rag})
+        # -----------------------------------------------------------------
+        
         follow = (
             f"\n\n이어서 진행합니다.\n{current_item['question']}"
             if current_item else "\n\n계약서 작성을 모두 완료했습니다."
@@ -406,7 +420,8 @@ async def process_message(
             reply=rag + follow,
             updated_field=None,
             is_finished=(current_item is None),
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
     # ✅ 4) 폼 답변 처리
@@ -415,8 +430,16 @@ async def process_message(
             reply="모든 항목이 이미 채워졌습니다!",
             updated_field=None,
             is_finished=True,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
+    
+    # -----------------------------------------------------------------
+    # ✅ [3. CHAT HISTORY 추가] (폼 턴 기록)
+    # 폼 답변은 [봇 질문] -> [사용자 답변] 순서입니다.
+    new_chat_history.append({"sender": "bot", "message": current_bot_question})
+    new_chat_history.append({"sender": "user", "message": message})
+    # -----------------------------------------------------------------
 
     # 실제 필드 처리
     ai = await get_smart_extraction(
@@ -443,34 +466,43 @@ async def process_message(
             reply=ai["follow_up_question"],
             updated_field=None,
             is_finished=False,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
     # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
+    # -----------------------------------------------------------------
+    # ✅ [4. CHAT HISTORY 추가]
+    # updated_key는 폼 답변 성공 시에만 정의되므로, 
+    # 'if next_item:' 블록 밖으로 이동시키거나 안전하게 처리합니다.
+    updated_key = list(new_fields.keys())[0] if new_fields else None
+    # -----------------------------------------------------------------
+    
     if next_item:
-        updated_key = list(new_fields.keys())[0]
         return schemas.ChatResponse(
             reply=next_item["question"],
-            updated_field=schemas.UpdatedField(
-            field_id=updated_key,
-            value=new_fields[updated_key]
-    ),
-    is_finished=False,
-    full_contract_data=content
-)
+            updated_field=[{
+                "field_id": updated_key,
+                "value": new_fields[updated_key]
+            }] if updated_key else [],            
+            is_finished=False,
+            full_contract_data=content,
+            chat_history=new_chat_history # ⬅️ 추가
+        )
 
     else:
         return schemas.ChatResponse(
             reply="모든 항목이 작성되었습니다.",
-            updated_field=schemas.UpdatedField(
-                field_id=updated_key,
-                value=new_fields[updated_key]
-            ),
+            updated_field=[{
+                "field_id": updated_key,
+                "value": new_fields[updated_key]
+            }] if updated_key else [],
             is_finished=True,
-            full_contract_data=content
-)
+            full_contract_data=content,
+            chat_history=new_chat_history # ⬅️ 추가
+        )
 
 
 

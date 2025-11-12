@@ -80,7 +80,8 @@ async def process_chat_message(
         await crud.update_contract(
             db=db,
             contract_id=contract.id,
-            new_content=response.full_contract_data
+            new_content=response.full_contract_data,
+            new_chat_history=response.chat_history
         )
 
     return response

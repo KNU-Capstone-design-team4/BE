@@ -110,7 +110,7 @@ async def delete_contract(db: AsyncSession, contract: models.Contract):
     await db.commit()
     return None
 
-async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict[str, Any]) -> models.Contract:
+async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict[str, Any], new_chat_history: List[Dict[str, Any]]) -> models.Contract:
     """
     계약서 content 전체를 덮어써서 업데이트하는 함수
     services.py의 process_chat_message()가 호출함
@@ -118,7 +118,7 @@ async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict
     stmt = (
         update(models.Contract)
         .where(models.Contract.id == contract_id)
-        .values(content=new_content)
+        .values(content=new_content, chat_history=new_chat_history)
         .execution_options(synchronize_session="fetch")
     )
 

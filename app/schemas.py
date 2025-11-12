@@ -101,4 +101,4 @@ class ChatResponse(BaseModel):
     updated_field: Optional[List[UpdatedField]] = None
     is_finished: bool
     full_contract_data: Optional[Dict[str, Any]] = None
-
+    chat_history: Optional[List[Dict[str, Any]]] = None

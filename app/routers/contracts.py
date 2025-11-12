@@ -80,7 +80,7 @@ async def get_contract_details(
     db_contract.status = current_status # DB에서 읽어온 status (또는 방금 변경한 status)
     
     # ✅ [핵심 추가] HTML 템플릿 읽기
-    html_path = os.path.join(os.path.dirname(__file__), "..", "templates", "working.html")
+    html_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", "working.html")
     html_path = os.path.abspath(html_path)
     
     if not os.path.exists(html_path):
@@ -92,10 +92,12 @@ async def get_contract_details(
      # ContractDetail 스키마를 확장해 templateHtml 필드를 포함시켰다고 가정
     return {
         "id": str(db_contract.id),
-        "title": db_contract.title,
+        "contract_type": db_contract.contract_type,
         "status": db_contract.status,
+        "updated_at": db_contract.updated_at,
+        "owner_id": db_contract.owner_id,
         "next_question": db_contract.next_question,
-        "data": db_contract.content,
+        "content": db_contract.content,
         "templateHtml": html_content,   # ✅ 프론트에서 미리보기용으로 사용할 HTML
         "chatHistory": db_contract.chat_history if hasattr(db_contract, "chat_history") else [],
     }
