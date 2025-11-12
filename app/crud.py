@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from typing import List, Any
+from sqlalchemy import select, update, delete
+from typing import List, Any, Dict
 from uuid import UUID
 
 from . import models, schemas
@@ -77,3 +77,53 @@ async def update_contract_content(db: AsyncSession, contract: models.Contract, f
     
     return contract
 
+async def update_contract_content_multiple(db: AsyncSession, contract: models.Contract, fields_to_update: Dict[str, Any]) -> models.Contract:
+    """
+    AI가 반환한 여러 필드를 계약서 content에 한 번에 병합(merge)하여 업데이트합니다.
+    """
+    # 1. DB에서 현재 content를 가져옵니다 (불변성 유지를 위해 복사)
+    current_content = dict(contract.content) if contract.content else {}
+    
+    # 2. AI가 새로 채운 필드들을 덮어씁니다. (예: 'is_bonus_paid_no_o'와 'bonus_amount' 동시 저장)
+    current_content.update(fields_to_update)
+    
+    # 3. DB에 반영합니다.
+    contract.content = current_content
+    db.add(contract)
+    await db.commit()
+    await db.refresh(contract)
+    
+    return contract
+
+async def delete_contract(db: AsyncSession, contract: models.Contract):
+    """
+    데이터베이스에서 특정 계약서 객체를 삭제합니다.
+    (라우터에서 전달받은 contract 객체의 ID를 사용합니다.)
+    """
+    
+    # ❗️ (수정) db.delete(contract) 대신,
+    # contract.id를 기준으로 DB에 직접 DELETE SQL을 실행합니다.
+    # (contracts.py에서 이미 소유권 검사를 마쳤으므로 안전합니다.)
+    stmt = delete(models.Contract).where(models.Contract.id == contract.id)
+    
+    await db.execute(stmt)
+    await db.commit()
+    return None
+
+async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict[str, Any]) -> models.Contract:
+    """
+    계약서 content 전체를 덮어써서 업데이트하는 함수
+    services.py의 process_chat_message()가 호출함
+    """
+    stmt = (
+        update(models.Contract)
+        .where(models.Contract.id == contract_id)
+        .values(content=new_content)
+        .execution_options(synchronize_session="fetch")
+    )
+
+    await db.execute(stmt)
+    await db.commit()
+
+    updated = await db.get(models.Contract, contract_id)
+    return updated

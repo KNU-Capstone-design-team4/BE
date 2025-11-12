@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional, Dict, Any
 from uuid import UUID
+from typing import List
 
 # =================================================================
 #                         사용자 (User)
@@ -92,7 +93,7 @@ class UpdatedField(BaseModel):
 # 챗봇의 응답 (Response)
 class ChatResponse(BaseModel):
     reply: str
-    updated_field: Optional[UpdatedField] = None
+    updated_field: Optional[List[UpdatedField]] = None
     is_finished: bool
     full_contract_data: Optional[Dict[str, Any]] = None
 

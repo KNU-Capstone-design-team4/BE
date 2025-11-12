@@ -101,6 +101,28 @@ async def chat_with_bot(
     response = await services.process_chat_message(db, db_contract, chat_data.message)
     return response
 
+@router.delete("/{contract_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_contract(
+    contract_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_supabase_token)
+):
+    """
+    ### 특정 계약서 삭제
+    ... (주석 동일) ...
+    """
+    db_contract = await crud.get_contract_by_id(db=db, contract_id=contract_id, user_id=UUID(current_user['id']))
+    
+    if db_contract is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
+    
+    await crud.delete_contract(db=db, contract=db_contract)
+    
+    # ❗️ 수정된 부분:
+    # 204 응답은 본문이 없으므로, 아무것도 반환하지 않습니다.
+    # 데코레이터가 status_code=204를 알아서 처리해 줍니다.
+    return None
+
 @router.get("/{contract_id}/download")
 async def download_contract(
     contract_id: UUID,
@@ -117,7 +139,7 @@ async def download_contract(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="계약서를 찾을 수 없거나 접근 권한이 없습니다.")
     
     # 실제 문서 생성 로직은 services.py에서 처리
-    document = services.create_docx_from_contract(db_contract)
+    document = await services.create_docx_from_contract(db_contract)
     
     # 파일을 메모리 버퍼에 저장하여 전송
     buffer = io.BytesIO()
