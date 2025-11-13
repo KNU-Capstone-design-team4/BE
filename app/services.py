@@ -5,9 +5,6 @@ from docxtpl import DocxTemplate
 from . import crud, models, schemas
 from .ai_handlers import working_ai, foreign_ai
 
-from .ai_handlers import working_ai, foreign_ai
-
-from .ai_handlers import working_ai, foreign_ai
 
 def find_next_question(contract):
     """contract_type 에 따라 적절한 AI 핸들러로 라우팅하고,
@@ -75,14 +72,14 @@ async def process_chat_message(
         message=user_message
     )
 
-    # ✅ 2) 핸들러가 반환한 최신 content로 DB 업데이트
-    if response.full_contract_data is not None:
-        await crud.update_contract(
-            db=db,
-            contract_id=contract.id,
-            new_content=response.full_contract_data,
-            new_chat_history=response.chat_history
-        )
+    # # ✅ 2) 핸들러가 반환한 최신 content로 DB 업데이트
+    # if response.full_contract_data is not None:
+    #     await crud.update_contract(
+    #         db=db,
+    #         contract_id=contract.id,
+    #         new_content=response.full_contract_data,
+    #         new_chat_history=response.chat_history
+    #     )
 
     return response
 
