@@ -14,16 +14,17 @@ from app import schemas
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # --- 1. 근로계약서 전용 시나리오 ---
-CONTRACT_SCENARIO = [
+CONTRACT_SCENARIO= [
     # 1. 당사자 정보
-    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 고용주(대표자)의 성함은 무엇인가요? (예: 김철수)"},
-    {"field_id": "business_name", "question": "고용주가 운영하는 사업체명(회사 이름)을 알려주세요. (예: (주)한빛유통)"},
+    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 '사업주'의 성함은 무엇인가요? "},
+    {"field_id": "employee_name", "question": "이제 '근로자'의 성함은 무엇인가요? "},
+    {"field_id": "business_name", "question": "고용주가 운영하는 사업체명(회사 이름)을 알려주세요.(예: (주)한빛유통)"},
     {"field_id": "business_phone", "question": "사업체의 대표 연락처(전화번호)를 입력해주세요."},
     {"field_id": "business_address", "question": "사업장의 소재지(주소)는 어디인가요?"},
-    {"field_id": "employee_name", "question": "이제 근로자(본인)의 성함은 무엇인가요?"},
+    {"field_id": "employer_representative", "question": "사업주 서명란의 '대표자 성명'을 입력해주세요. (예: 홍길동)"},
+
     {"field_id": "employee_address", "question": "근로자의 현 주소는 어디인가요?"},
     {"field_id": "employee_phone", "question": "근로자의 연락처(전화번호)를 입력해주세요."},
-
     # 2. 계약 기간 및 장소
     {"field_id": "start_date_full", "question": "실제 근로를 시작하는 날(근로개시일)은 언제인가요? (예: 2025년 11월 1일)"},
     {"field_id": "work_location", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요. (예: 사업장과 동일)"},
@@ -32,25 +33,33 @@ CONTRACT_SCENARIO = [
     # 3. 근로시간 및 휴일
     {"field_id": "start_time", "question": "하루 근로를 시작하는 시간(시업 시간)을 알려주세요. (예: 09:00)"},
     {"field_id": "end_time", "question": "하루 근로를 마치는 시간(종업 시간)을 알려주세요. (예: 18:00)"},
-    {"field_id": "rest_time", "question": "하루 중 주어지는 휴게시간은 총 몇 분인가요? (숫자만 입력, 예: 60)"},
+    {"field_id": "rest_time", "question": "휴게 시간은 몇 시부터 몇 시까지인가요? (예: 12:00 - 13:00)"},
     {"field_id": "work_day", "question": "일주일에 '총 몇 일'을 근무하나요? (숫자만 입력, 예: 5)"},
     {"field_id": "Weekly_Paid_Holiday", "question": "주휴일(유급휴일)로 지정된 요일은 무엇인가요? (예: 매주 일요일)"},
 
     # 4. 임금 (급여)
     {"field_id": "salary_amount", "question": "월(일, 시간)급 총 임금액을 숫자로만 알려주세요. (예: 2500000)"},
-    {"field_id": "is_bonus_paid", "question": "별도로 정기적인 상여금이 지급되나요? (예: 있음/없음)"},
-    {"field_id": "bonus_amount", "question": "상여금액은 얼마인가요?"}, 
-    {"field_id": "is_allowance_paid", "question": "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"},
-    {"field_id": "allowance_details", "question": "기타 급여가 있다면 종류와 금액을 상세히 알려주세요. (예: 식대 10만원)"}, 
-    {"field_id": "salary_payment_date", "question": "임금은 매월 며칠에 지급되나요? (숫자만 입력, 예: 25)"},
-    {"field_id": "payment_method_type", "question": "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"},
+    {"field_id": "bonus", "question": "별도로 정기적인 상여금이 지급되나요?"},
+    {"field_id": "bonus_amout", "question": "상여금은 얼마인가요?"},
     
-    # 5. 사회보험 및 기타
-    {"field_id": "apply_employment_insurance", "question": "고용보험에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "apply_industrial_accident_insurance", "question": "산재보험에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "apply_national_pension", "question": "국민연금에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "apply_health_insurance", "question": "건강보험에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "contract_date_full", "question": "이 근로계약서를 최종적으로 작성한 날짜(계약일)는 언제인가요? (예: 오늘)"},
+    {"field_id": "allowance", "question": "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"},
+    {"field_id": "other_allowance_1", "question": "기타 급여 첫 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_2", "question": "기타 급여 두 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_3", "question": "기타 급여 세 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_4", "question": "기타 급여 네 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+
+    {"field_id": "salary_payment_date", "question": "임금은 매월 며칠에 지급되나요? (숫자만 입력, 예: 25)"},
+    {"field_id": "payment_method", "question": "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"},
+    
+    # 5. 사회보험
+    {"field_id": "employment_insurance", "question": "고용보험에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "industrial_accident_insurance", "question": "산재보험에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "national_pension", "question": "국민연금에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "health_insurance", "question": "건강보험에 가입하나요? (예: 예/아니오)"},
+
+    # 11. 계약일
+    {"field_id": "contract_date_full", "question": "이 근로계약서를 최종적으로 작성한 날짜는 언제인가요? (예: 2025년 10월 20일)"},
+
 ]
 
 TIP_LIST = [
@@ -115,7 +124,7 @@ You are an expert assistant specializing in extracting only the essential, core 
 ---
 """
 
-SIMILARITY_THRESHOLD = 0.4
+SIMILARITY_THRESHOLD = 0.6
 
 tip_embeddings: List[np.ndarray] = []
 tip_embeddings_lock = asyncio.Lock()
@@ -190,10 +199,13 @@ async def get_smart_extraction(
     2.  답변이 모호하거나 정보가 부족하면 `status: "clarify"`와 `follow_up_question`을 생성합니다.
     3.  `filled_fields`에는 템플릿(docxtpl)에 사용될 모든 변수를 채워야 합니다.
         - 괄호 ( ) 안을 채울 땐: "O" 또는 " " (공백)
-        - 체크박스 ☐ 를 채울 땐: "☒" (U+2612) 또는 "☐" (U+2610)
+        - 체크박스 ☐ 를 채울 땐: "☑" (U+2612) 또는 "☐" (U+2610)
         - 날짜 형식은 "YYYY년 MM월 DD일" (예: "2025년 03월 07일")
+        - 시간 형식은 24시간제 "HH:MM" (예: "09:00", "14:30")
     4.  `skip_next_n_questions`는 '없음'을 선택하여 다음 질문이 불필요할 때 사용됩니다.
     5.  반드시 지정된 JSON 형식으로만 반환해야 합니다.
+    6. 답변이 원하는 대답이 아니면 다시 질문하고 원하는 답이 나오면 그 답을 변수에 채워넣습니다.
+    7. `bonus_amount` 등 금액을 나타내는 필드에는 단위(예: 원, 만원)을 지우고 숫자 및 쉼표만 입력합니다. (예: "500,000")
 
     [JSON 반환 형식]
     {json_format_example}
@@ -219,68 +231,203 @@ async def get_smart_extraction(
         user_message: "2025년 3월 7일"
         AI: {{"status": "success", "filled_fields": {{"{field_id}": "2025년 03월 07일"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
-    
-    # [상여금] 예시
-    elif field_id == "is_bonus_paid":
-        specific_examples = """
-        [예시 1: '있음' 선택]
-        question: "별도로 정기적인 상여금이 지급되나요? (예: 있음/없음)"
-        user_message: "네 있어요"
-        AI: {{"status": "success", "filled_fields": {{"is_bonus_paid_yes_o": "O", "is_bonus_paid_no_o": " "}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+    elif field_id == "rest_time":
+        specific_examples = f"""
+        [예시 1: '12:00 - 13:00' (시간 범위)]
+        question: "{question}"
+        user_message: "12시부터 1시까지요"
+        # 1시(13:00) - 12시(12:00) = 60분
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '없음' 선택 (다음 질문 스킵)]
-        question: "별도로 정기적인 상여금이 지급되나요? (예: 있음/없음)"
+        [예시 2: '60분' (분 명시)]
+        question: "{question}"
+        user_message: "총 60분입니다"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: '1시간' (시간 명시)]
+        question: "{question}"
+        user_message: "1시간이요"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 4: '1시간 30분']
+        question: "{question}"
+        user_message: "1시간 30분입니다"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "90"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+    # [상여금] 예시
+    elif field_id == "bonus":
+        specific_examples = f"""
+        [예시 1: '있음' 선택 (금액 입력)]
+        question: "{question}"
+        user_message: "네 100만원이요"
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "1,000,000",
+            "bonus_yes": true,           /* HTML '있음' 체크 해제 */
+            "bonus_none": false,           /* HTML '없음' 체크 */
+            "is_bonus_paid_yes_o": "O",
+            "is_bonus_paid_no_o": " "
+        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+
+        [예시 2: '없음' 선택]
+        question: "{question}"
         user_message: "아니요 없습니다"
-        AI: {{"status": "success", "filled_fields": {{"is_bonus_paid_yes_o": " ", "is_bonus_paid_no_o": "O", "bonus_amount": "0"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
-        
-        [예시 3: '있음'과 '금액'을 한 번에 답변]
-        question: "별도로 정기적인 상여금이 지급되나요? (예: 있음/없음)"
-        user_message: "네, 100만원이요."
-        AI: {{"status": "success", "filled_fields": {{"is_bonus_paid_yes_o": "O", "is_bonus_paid_no_o": " ", "bonus_amount": "1,000,000"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "", 
+            "bonus_yes": false, /* HTML '있음' 체크 해제 */
+            "bonus_none": true, /* HTML '없음' 체크 */
+            "is_bonus_paid_yes_o": " ",
+            "is_bonus_paid_no_o": "O"
+        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        """
+    
+    elif field_id == "bonus_amout": # ⭐️ 새로 추가된 필드
+        specific_examples = f"""
+        [예시 1: 금액 입력]
+        question: "{question}"
+        user_message: "50만원입니다"
+        AI: {{"status": "success", "filled_fields": {{"bonus_amount": "500,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: 금액 입력 (단위 생략)]
+        question: "{question}"
+        user_message: "1200000"
+        AI: {{"status": "success", "filled_fields": {{"bonus_amount": "1,200,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+    
+    elif field_id == "Weekly_Paid_Holiday":
+        specific_examples = f"""
+        [예시 1: 요일 입력 (성공)]
+        question: "{question}"
+        user_message: "매주 일요일로 정했습니다."
+        AI: {{"status": "success", "filled_fields": {{"Weekly_Paid_Holiday": "매주 일요일"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: 공백 입력 (없음)]
+        question: "{question}"
+        user_message: "주휴일은 따로 없습니다."
+        AI: {{"status": "success", "filled_fields": {{"Weekly_Paid_Holiday": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: 공백 입력 (없음 - 단답형)]
+        question: "{question}"
+        user_message: "없습니다" 
+        AI: {{"status": "success", "filled_fields": {{"Weekly_Paid_Holiday": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
 
     # [기타급여] 예시
-    elif field_id == "is_allowance_paid":
-        specific_examples = """
-        [예시 1: '있음' 선택]
+    elif field_id == "allowance":
+        specific_examples = f"""
+        [예시 1: '있음' 선택 (다음 질문으로 이동)]
         question: "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"
         user_message: "네 있습니다"
-        AI: {{"status": "success", "filled_fields": {{"is_allowance_paid_yes_o": "O", "is_allowance_paid_no_o": " "}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "allowance_yes": true,        /* HTML '있음' 체크 */
+            "other_allowance_none": false,  /* HTML '없음' 체크 해제 */
+            "is_allowance_paid_yes_o": "O",
+            "is_allowance_paid_no_o": " "
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '있음'과 '내역'을 한 번에 답변]
-        question: "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"
-        user_message: "네, 식대 10만원이요."
-        AI: {{"status": "success", "filled_fields": {{"is_allowance_paid_yes_o": "O", "is_allowance_paid_no_o": " ", "allowance_details": "식대 10만원"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
-
-        [예시 3: '없음' 선택 (다음 질문 스킵)]
+        [예시 2: '없음' 선택 (다음 4개 질문 스킵)]
         question: "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"
         user_message: "아니요 없어요"
-        AI: {{"status": "success", "filled_fields": {{"is_allowance_paid_yes_o": " ", "is_allowance_paid_no_o": "O", "allowance_details": ""}}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "allowance_yes": false,       /* HTML '있음' 체크 해제 */
+            "other_allowance_none": true,   /* HTML '없음' 체크 */
+            "is_allowance_paid_yes_o": " ",
+            "is_allowance_paid_no_o": "O",
+            "other_allowance_1": "", 
+            "other_allowance_2": "", 
+            "other_allowance_3": "", 
+            "other_allowance_4": ""
+        }}, "skip_next_n_questions": 4, "follow_up_question": null}}
+        """
+    elif field_id.startswith("other_allowance_"):
+        # 현재 field_id에서 숫자 추출 (예: "other_allowance_2" -> 2)
+        try:
+            current_num = int(field_id.split('_')[-1]) # 1, 2, 3, 4
+        except ValueError:
+            current_num = 1 # 기본값
+
+        # '없음' 선택 시 스킵할 질문 수 계산 (남은 질문 수)
+        skip_count = 4 - current_num
+
+        # '없음' 선택 시 미리 채워둘 필드 생성
+        # 예: 2번에서 '없음' -> {"other_allowance_2": "", "other_allowance_3": "", "other_allowance_4": ""}
+        fields_to_fill_on_none = {}
+        for i in range(current_num, 5): # current_num 부터 4까지
+            fields_to_fill_on_none[f"other_allowance_{i}"] = ""
+        
+        filled_fields_str = str(fields_to_fill_on_none).replace("'", '"')
+
+        specific_examples = f"""
+        [예시 1: '있음' (항목 + 금액) -> 성공]
+        question: "{question}"
+        user_message: "네 식대 10만원이요"
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "식대 100,000원"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 2: '있음' (금액만 입력) -> 되묻기 (항목) **⭐️ 금액 저장**]
+        question: "{question}"
+        user_message: "100000"
+        AI: {{"status": "clarify", "filled_fields": {{**"{field_id}_amount_temp": "100,000원"**}}, "skip_next_n_questions": 0, "follow_up_question": "금액 100,000원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+
+        [예시 3: '있음' (항목만 입력) -> 되묻기 (금액) **⭐️ 항목 저장**]
+        question: "{question}"
+        user_message: "교통비"
+        AI: {{"status": "clarify", "filled_fields": {{**"{field_id}_item_temp": "교통비"**}}, "skip_next_n_questions": 0, "follow_up_question": "교통비의 금액은 얼마인가요? (예: 50000원)"}}
+
+        [예시 4: '있음' (모호한 단위) -> 되묻기 (항목) **⭐️ 금액 저장**]
+        question: "{question}"
+        user_message: "15만원입니다"
+        AI: {{"status": "clarify", "filled_fields": {{**"{field_id}_amount_temp": "150,000원"**}}, "skip_next_n_questions": 0, "follow_up_question": "금액 15만원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+
+        [예시 5: '없음' 선택 (현재 + 나머지 공백 저장 및 스킵)]
+        question: "{question}"
+        user_message: "아니요 없어요"
+        AI: {{"status": "success", "filled_fields": {filled_fields_str}, "skip_next_n_questions": {skip_count}, "follow_up_question": null}}
         """
 
     # [지급방법] 예시
-    elif field_id == "payment_method_type":
+    elif field_id == "payment_method":
         specific_examples = """
         [예시 1: '계좌이체' 선택]
         question: "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"
         user_message: "통장으로 받을게요"
-        AI: {{"status": "success", "filled_fields": {{"payment_method_direct_o": " ", "payment_method_bank_o": "O"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
-        ... (이하 지급방법 예시) ...
+        AI: {{"status": "success", "filled_fields": {{
+            "direct_pay": false, 
+            "bank_pay": true,
+            "payment_method_direct_o": " ",
+            "payment_method_bank_o": "O"
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: '직접 지급' 선택]
+        question: "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"
+        user_message: "현금으로 직접 받고 싶어요"
+        AI: {{"status": "success", "filled_fields": {{
+            "direct_pay": true, 
+            "bank_pay": false,
+            "payment_method_direct_o": "O",
+            "payment_method_bank_o": " "
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     # [사회보험] 예시
-    elif field_id.startswith("apply_"):
-        check_variable_name = f"{field_id}_check" 
+    elif field_id in ["employment_insurance", "industrial_accident_insurance", "national_pension", "health_insurance"]:
+        # DOCX용 변수명 (예: apply_employment_insurance_check)
+        check_variable_name = f"apply_{field_id}_check" 
+        
         specific_examples = f"""
-        [예시 1: '예' 선택 (체크박스 ☒)]
+        [예시 1: '예' 선택 (HTML: true, DOCX: ☒)]
         question: "{question}"
         user_message: "네 가입해요"
-        AI: {{"status": "success", "filled_fields": {{"{check_variable_name}": "☑"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "{field_id}": true,
+            "{check_variable_name}": "☑"
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
-        [예시 2: '아니오' 선택 (체크박스 ☐)]
+        [예시 2: '아니오' 선택 (HTML: false, DOCX: ☐)]
         question: "{question}"
         user_message: "아니요"
-        AI: {{"status": "success", "filled_fields": {{"{check_variable_name}": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "{field_id}": false,
+            "{check_variable_name}": "☐"
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     # [기본] 예시
@@ -290,8 +437,18 @@ async def get_smart_extraction(
         question: "{question}"
         user_message: "저희 회사는 (주)한빛유통입니다."
         AI: {{"status": "success", "filled_fields": {{"{field_id}": "(주)한빛유통"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
-        ... (이하 기본 예시) ...
+        
+        [예시 2: 시간 형식화 (오전)]
+        question: "하루 근로를 시작하는 시간(시업 시간)을 알려주세요. (예: 09:00)"
+        user_message: "9시입니다."
+        AI: {{"status": "success", "filled_fields": {{"start_time": "09:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: 시간 형식화 (오후)]
+        question: "하루 근로를 마치는 시간(종업 시간)을 알려주세요. (예: 18:00)"
+        user_message: "저녁 6시요."
+        AI: {{"status": "success", "filled_fields": {{"end_time": "18:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}  
         """
+    
 
     system_prompt_with_examples = f"{base_system_prompt}\n--- [필드별 퓨샷(Few-Shot) 예시] ---\n{specific_examples}"
     
@@ -343,13 +500,27 @@ def find_next_question(
             continue
             
         # (특수 로직) 괄호나 체크박스 필드가 채워졌는지 확인
-        if field_id == "is_bonus_paid" and "is_bonus_paid_yes_o" in current_content:
-            continue
-        if field_id == "is_allowance_paid" and "is_allowance_paid_yes_o" in current_content:
-            continue
-        if field_id == "payment_method_type" and "payment_method_direct_o" in current_content:
-            continue
-        if field_id.startswith("apply_") and f"{field_id}_check" in current_content:
+        if field_id == "bonus":
+            if "is_bonus_paid_yes_o" in current_content or "is_bonus_paid_no_o" in current_content:
+                continue # 템플릿에 들어갈 O/X 표시가 있으면 완료된 것임
+            
+        # 3. 기타 특수 필드 체크 (이전 로직을 is_field_completed의 논리로 변경)
+        #    'is_allowance_paid' 대신 'allowance' 필드 ID를 사용해야 합니다.
+        if field_id == "allowance":
+             if "is_allowance_paid_yes_o" in current_content or "is_allowance_paid_no_o" in current_content:
+                continue
+             
+        if field_id == "payment_method":
+            if "payment_method_direct_o" in current_content or "payment_method_bank_o" in current_content:
+                continue
+
+        if field_id in ["employment_insurance", "industrial_accident_insurance", "national_pension", "health_insurance"]:
+             check_variable_name = f"apply_{field_id}_check" 
+             if check_variable_name in current_content:
+                continue
+
+        # 5. 기타 급여 항목 스킵 체크 (이전 로직에서 그대로 가져옴)
+        if field_id.startswith("other_allowance_") and current_content.get("is_allowance_paid_no_o") == "O":
             continue
             
         # 다음 질문 찾음
@@ -379,7 +550,7 @@ async def process_message(
     current_bot_question = current_item["question"] if current_item else None
 
     # ✅ 2) 아무 입력 없으면 "시작/재개"
-    if not message.strip():
+    if not message.strip() or message.strip() == "string":
         if current_item:
             return schemas.ChatResponse(
                 reply=current_item["question"],
@@ -451,6 +622,50 @@ async def process_message(
 
     # ✅ AI가 반환한 filled_fields 적용
     new_fields = ai.get("filled_fields", {})
+
+    # -------------------------------------------------------------
+    # ⭐️⭐️⭐️ [여기에 기타 급여 항목 합치기 로직 추가] ⭐️⭐️⭐️
+    # -------------------------------------------------------------
+    field_id = current_item["field_id"]
+    if field_id.startswith("other_allowance_"):
+        
+        # 1. 이전 임시 정보 로드
+        item_temp = content.get(f"{field_id}_item_temp")
+        amount_temp = content.get(f"{field_id}_amount_temp")
+        
+        # 2. 새로 들어온 필드 확인
+        new_item = new_fields.get(f"{field_id}_item_temp")
+        new_amount = new_fields.get(f"{field_id}_amount_temp")
+
+        # 3. 최종 값 결정 (새로운 값이 있으면 사용, 없으면 이전 값 사용)
+        final_item = new_item if new_item else item_temp
+        final_amount = new_amount if new_amount else amount_temp
+
+        # 4. 임시 필드를 content에 먼저 저장 (이전 정보 덮어쓰기 포함)
+        content.update(new_fields) 
+        
+        # 5. 최종 완성 체크: 항목과 금액이 모두 있다면 합치고 임시 필드 삭제
+        if final_item and final_amount:
+            # 최종 필드 완성 (예: "교통비 50,000원")
+            content[field_id] = f"{final_item} {final_amount}"
+            
+            # 임시 필드 삭제 (다음 턴에서 합쳐지지 않도록)
+            content.pop(f"{field_id}_item_temp", None)
+            content.pop(f"{field_id}_amount_temp", None)
+            
+            # 6. 상태 강제 변경 및 응답 필드 업데이트
+            ai['status'] = "success" # 강제로 성공 상태로 전환하여 다음 질문으로 이동
+            # 최종 필드가 업데이트되었음을 시스템에 알림
+            new_fields.clear() # 임시 필드를 제거하고
+            new_fields[field_id] = content[field_id] # 최종 필드만 남김
+        else:
+            # 항목이나 금액 중 하나만 있다면, 다음 질문으로 계속 유도
+            # ai['status']가 clarify라면 그대로 진행됨
+            pass
+    # -------------------------------------------------------------
+    # ⭐️⭐️⭐️ [기타 급여 항목 합치기 로직 끝] ⭐️⭐️⭐️
+    # -------------------------------------------------------------
+    
     content.update(new_fields)
 
     # ✅ skip_next_n_questions 적용
