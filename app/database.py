@@ -62,8 +62,7 @@ engine = create_async_engine(
         "statement_cache_size": 0, # 캐시 비활성화
         "prepared_statement_name_func": get_unique_statement_name, # 고유 이름 부여 (Supabase에서 필수)
     },
-    # Supabase 환경에서 충돌을 더 줄이려면 NullPool 사용을 고려할 수 있습니다.
-    # poolclass=NullPool
+    pool_pre_ping=True
 )
 
 '''

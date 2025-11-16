@@ -20,22 +20,22 @@ client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 CONTRACT_SCENARIO = [
     {"field_id": "surname", "question": "여권상의 성(Surname)을 영문으로 알려주세요."},
     {"field_id": "given_names", "question": "여권상의 이름(Given names)을 영문으로 알려주세요."},
-    {"field_id": "birth", "question": "생년월일을 알려주세요.(yyy-mm-dd 형식)"},
+    {"field_id": "birth", "question": "생년월일을 알려주세요.(yyyy-mm-dd 형식)"},
     {"field_id": "sex", "question": "성별을 알려주세요. (남 / 여)"},
     {"field_id": "nation", "question": "국적을 알려주세요."},
     {"field_id": "passport_num", "question": "여권번호를 알려주세요."},
     {"field_id": "passport_date", "question": "여권 발급일자를 알려주세요."},
     {"field_id": "passport_expired", "question": "여권 유효기간을 알려주세요."},
     {"field_id": "korea_address", "question": "대한민국 내 주소를 알려주세요."},
-    {"field_id": "tele_num", "question": "전화 번호를 알려주세요."},
-    {"field_id": "phone_num", "question": "휴대 전화 번호를 알려주세요"},
+    {"field_id": "tele_num", "question": "전화 번호를 알려주세요. (예: 02-123-4567)"},
+    {"field_id": "phone_num", "question": "휴대 전화 번호를 알려주세요. (예: 010-1234-5678)"},
     {"field_id": "address_in_home_country", "question": "본국 주소를 알려주세요."},
     {"field_id": "email", "question": "이메일을 알려주세요"},
     {"field_id": "refund_bank_account", "question": "반환용 계좌번호를 알려주세요 (필요시)"},
     {"field_id": "foreign_num", "question": "본인의 외국인 등록번호를 알려주세요(총 13자리)"},
 
     # --- 2. 신청 항목 (첫 번째 분기점) ---
-    {"field_id": "application_type", "question": "신청/신고 항목을 선택해주세요.\n1. 외국인 등록, 2. 등록증 재발급, 3. 체류기간 연장허가, 4. 체류자격 변경허가, 5. 체류자격 부여,\n6. 체류자격외 활동허가, 7. 근무처 변경/추가허가, 8. 체류지 변경신고, 9. 등록사항 변경신고)"},
+    {"field_id": "application_type", "question": "신청/신고 항목을 선택해주세요. (1. 외국인 등록, 2. 등록증 재발급, 3. 체류기간 연장허가, 4. 체류자격 변경허가, 5. 체류자격 부여,6. 체류자격외 활동허가, 7. 근무처 변경/추가허가, 8. 체류지 변경신고, 9. 등록사항 변경신고)"},
     
     # 2-1. [조건부 질문 1] '체류자격 변경허가' 선택 시
     {"field_id": "app_change_desired", "question": "변경을 희망하는 체류 자격은 무엇인가요? (예: E-7)"},
@@ -53,7 +53,7 @@ CONTRACT_SCENARIO = [
     {"field_id": "school_name", "question": "학교이름을 알려주세요"},
 
     # 3-2. [조건부 질문 5] '근무자' 선택 시
-    {"field_id": "current_workplace", "question": "이전까지 일하던 근무처(회사명)를 알려주세요."},
+    {"field_id": "current_workspace", "question": "이전까지 일하던 근무처(회사명)를 알려주세요."},
     {"field_id": "cur_business_regis_num", "question": "이전까지 일했던 근무처의 사업자등록 번호를 알려주세요."},
     {"field_id": "new_workplace", "question": "앞으로 일할 근무처(회사명)를 알려주세요."},
     {"field_id": "new_business_regis_num", "question": "앞으로 일할 근무처의 사업자등록 번호를 알려주세요."},
@@ -275,43 +275,123 @@ async def get_smart_extraction(
         # (이 예시에서는 '희망 자격' 관련 질문 3개를 건너뛴다고 가정합니다)
         skip_count_for_simple_app = 3 
         
+        # ❗️ [수정] 10개 항목의 '체크 안 됨' 기본값
+        all_app_fields_unselected = {
+            "fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"
+        }
+        
+        # --- 10개 항목에 대한 '정답' 딕셔너리 미리 만들기 ---
+        
+        # (A) 단순 스킵 (skip: 3) 항목 7개
+        fields_for_reg = all_app_fields_unselected.copy()
+        fields_for_reg["fore_resident_regis"] = "☒"
+        
+        fields_for_reissue = all_app_fields_unselected.copy()
+        fields_for_reissue["re_regis_card"] = "☒"
+        
+        fields_for_extension = all_app_fields_unselected.copy()
+        fields_for_extension["ex_sojo_peri"] = "☒"
+        
+        fields_for_workplace = all_app_fields_unselected.copy()
+        fields_for_workplace["chg_add_wrkplc"] = "☒"
+        
+        fields_for_reentry = all_app_fields_unselected.copy()
+        fields_for_reentry["reen_permit"] = "☒"
+        
+        fields_for_alt_res = all_app_fields_unselected.copy()
+        fields_for_alt_res["alt_residence"] = "☒"
+        
+        fields_for_chg_reg = all_app_fields_unselected.copy()
+        fields_for_chg_reg["chg_registration"] = "☒"
+
+        # (B) 조건부 질문 (skip: 0, 1, 2) 항목 3개
+        fields_for_change = all_app_fields_unselected.copy()
+        fields_for_change["chg_stus_sojo"] = "☒"
+
+        fields_for_grant = all_app_fields_unselected.copy()
+        fields_for_grant["grant_sojourm"] = "☒"
+
+        fields_for_other = all_app_fields_unselected.copy()
+        fields_for_other["engage_act_not_sojo"] = "☒"
+        
+        # --- 10개 항목 전체에 대한 예시 프롬프트 생성 ---
         specific_examples = f"""
         [템플릿 변수명 목록] (총 10개)
         "fore_resident_regis", "re_regis_card", "ex_sojo_peri", "chg_stus_sojo", "grant_sojourm", "engage_act_not_sojo", "chg_add_wrkplc", "reen_permit", "alt_residence", "chg_registration"
 
-        [예시 1: '외국인 등록' 선택 (희망 자격 질문 3개 스킵)]
+        [예시 1: '외국인 등록' (단순 스킵 3)]
         question: "{question}"
-        user_message: "외국인 등록이요"
+        user_message: "1번 외국인 등록이요"
         AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☒", "re_regis_card": "☐", "ex_sojo_peri": "☐",
             "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, 
-            "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
 
-        [예시 2: '체류자격 변경허가' 선택 (다음 '희망 자격' 질문으로 이동)]
+        [예시 2: '등록증 재발급' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "등록증 재발급"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☒", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        
+        [예시 3: '체류기간 연장' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "체류기간 연장허가"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☒",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+
+        [예시 4: '체류자격 변경' (스킵 0)]
         question: "{question}"
         user_message: "체류자격 변경허가 신청할게요"
         AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
             "chg_stus_sojo": "☒", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, 
-            "skip_next_n_questions": 0, "follow_up_question": null}}
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
-        [예시 3: '체류자격 부여' 선택 (질문 1개 스킵)]
+        [예시 5: '체류자격 부여' (스킵 1)]
         question: "{question}"
         user_message: "자격 부여"
         AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
             "chg_stus_sojo": "☐", "grant_sojourm": "☒", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}},
-            "skip_next_n_questions": 1, "follow_up_question": null}}
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
 
-        [예시 4: '체류자격외 활동허가' 선택 (질문 0개 스킵)]
+        [예시 6: '체류자격외 활동' (스킵 2)]
         question: "{question}"
         user_message: "6번이요"
         AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
             "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☒",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}},
-            "skip_next_n_questions": 2, "follow_up_question": null}}
-        """
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 2, "follow_up_question": null}}
         
+        [예시 7: '근무처 변경' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "근무처 변경 신고"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☒", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        
+        [예시 8: '재입국 허가' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "재입국 허가"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☒", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        
+        [예시 9: '체류지 변경' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "체류지 변경"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☒", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        
+        [예시 10: '등록사항 변경' (단순 스킵 3)]
+        question: "{question}"
+        user_message: "등록사항 변경 신고"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☒"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        """
+       
     # --------------------------------------------------------------------
     # [신규 추가] 분기 1-1: '체류자격 변경' 희망 자격
     # (application_type에서 이 질문으로 넘어옴)
@@ -368,10 +448,10 @@ async def get_smart_extraction(
         student_q_count = 3
         worker_q_count = 6
         
-        print("start OT")
+        #print("start OT")
         # 1. '학생' 선택 시: '근무자' 필드를 비우고, '근무자' 질문(6개) 스킵
         student_example_fields = {
-            "current_workplace": "__SKIPPED__", 
+            "current_workspace": "__SKIPPED__", 
             "cur_business_regis_num": "__SKIPPED__", 
             "new_workplace": "__SKIPPED__", 
             "new_business_regis_num": "__SKIPPED__",
@@ -391,12 +471,14 @@ async def get_smart_extraction(
             "ac": "☐", "no_ac": "☐", "alt": "☐",
             "school_name": ""
         }
-        worker_example_json = json.dumps({
+        worker_example_json = {
             "status": "success",
-            "filled_fields": worker_example_fields,
-            "skip_next_n_questions": student_q_count,
+            "filled_fields": {"non": "☐", "ele": "☐", "mid": "☐", "hi": "☐",
+            "ac": "☐", "no_ac": "☐", "alt": "☐",
+            "school_name": ""},
+            "skip_next_n_questions": 0, # 원래 student_q_count가 맞습니다. 이중스킵으로 일단 0으로 설정. 수정필요.
             "follow_up_question": None
-        })
+        }
         
         # 3. '기타' 선택 시: '학생' + '근무자' 필드를 비우고, '학생'(3개) + '근무자'(6개) 질문 스킵
         other_example_fields = {**student_example_fields, **worker_example_fields}
@@ -545,7 +627,7 @@ def find_next_question(
                 continue
         if field_id == "occupation_type":
             if ("school_name" in current_content or 
-                "current_workplace" in current_content or
+                "current_workspace" in current_content or
                 field_id in current_content):
                 continue
         if field_id == "school_status":
