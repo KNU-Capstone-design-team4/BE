@@ -91,9 +91,11 @@ async def update_contract_content_multiple(db: AsyncSession, contract: models.Co
     contract.content = current_content
     db.add(contract)
     await db.commit()
-    await db.refresh(contract)
+    await db.refresh(contract, attribute_names=['content'])
+    print(f"DEBUG_3: Contract Content AFTER DB Save: {contract.content.get('employee_name')}") # 디버그 출력 유지
     
     return contract
+
 
 async def delete_contract(db: AsyncSession, contract: models.Contract):
     """
@@ -119,7 +121,7 @@ async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict
         update(models.Contract)
         .where(models.Contract.id == contract_id)
         .values(content=new_content, chat_history=new_chat_history)
-        .execution_options(synchronize_session="fetch")
+        #.execution_options(synchronize_session="fetch")
     )
 
     await db.execute(stmt)

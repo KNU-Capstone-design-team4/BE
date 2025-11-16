@@ -65,7 +65,7 @@ async def get_contract_details(
     # ❗️ [핵심 로직 추가] ❗️
     # -----------------------------------------------------------
     # 1. services.py에 다음 질문을 찾는 헬퍼 함수 호출
-    next_question_text = services.find_next_question(db_contract)
+    next_question_text = services.find_next_question(db_contract.content or {})
 
     # 2. 계약서 상태 업데이트 (필요시)
     current_status = db_contract.status

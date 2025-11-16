@@ -50,4 +50,4 @@ class Contract(Base):
     owner_profile = relationship("Profile", back_populates="contracts")
     # ✅ [추가] 채팅 기록을 저장할 컬럼
     # 기본값으로 빈 리스트 '[]'를 저장하도록 설정합니다.
-    chat_history = Column(JSON, nullable=False, default=[])
+    chat_history = Column(JSON, nullable=False, default=lambda: [])

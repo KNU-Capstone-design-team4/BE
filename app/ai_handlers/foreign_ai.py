@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from docxtpl import DocxTemplate
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import crud
 from app import schemas
 
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -475,6 +476,19 @@ async def process_message(
         _, idx = find_next_question(content)
         if idx < len(CONTRACT_SCENARIO):
             content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+
+    # AI가 content를 수정한 후, 응답을 반환하기 전에 DB에 저장합니다.
+    try:
+        # (주의!) crud가 import 되어 있어야 합니다 (from .. import crud)
+        await crud.update_contract_content_multiple(db, contract, content)
+    except Exception as e:
+        print(f"DB 업데이트 실패: {e}")
+        return schemas.ChatResponse(
+            reply=f"데이터 저장 중 오류가 발생했습니다: {e}",
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=contract.content or {} # 롤백된 원본
+        )
 
     # ✅ follow-up 질문이 있으면 그대로 반환
     if ai.get("status") == "clarify":

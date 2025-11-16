@@ -15,6 +15,12 @@ async def lifespan(app: FastAPI):
     # 이 부분에 특별한 시작 로직이 없다면 비워두어도 됩니다.
     # 연결은 첫 요청 시 자동으로 생성됩니다.
     
+    # ⬇️  [누락된 핵심 코드 추가] 
+    # DB에 테이블이 없으면 생성합니다.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("INFO:     Database tables checked/created.")
+    # ⬆️ 
     yield  # 이 지점에서 애플리케이션이 실행됩니다.
     
     # 앱 종료 시 실행될 코드

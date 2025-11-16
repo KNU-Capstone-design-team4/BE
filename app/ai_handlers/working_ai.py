@@ -11,6 +11,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+CONTRACT_SCENARIO_LABOR = [
+    # 1. 당사자 정보
+    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 '사업주'의 성함은 무엇인가요? "},
+    {"field_id": "employee_name", "question": "이제 '근로자'의 성함은 무엇인가요? "},
+    {"field_id": "business_name", "question": "고용주가 운영하는 사업체명(회사 이름)을 알려주세요.(예: (주)한빛유통)"},
+    {"field_id": "business_phone", "question": "사업체의 대표 연락처(전화번호)를 입력해주세요."},
+    {"field_id": "business_address", "question": "사업장의 소재지(주소)는 어디인가요?"},
+    {"field_id": "employer_representative", "question": "사업주 서명란의 '대표자 성명'을 입력해주세요. (예: 홍길동)"},
+
+    {"field_id": "employee_address", "question": "근로자의 현 주소는 어디인가요?"},
+    {"field_id": "employee_phone", "question": "근근로자의 연락처(전화번호)를 입력해주세요."},
+    # 2. 계약 기간 및 장소
+    {"field_id": "start_date_full", "question": "실제 근로를 시작하는 날(근로개시일)은 언제인가요? (예: 2025년 11월 1일)"},
+    {"field_id": "work_location", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요. (예: 사업장과 동일)"},
+    {"field_id": "job_description", "question": "근로자가 수행할 업무 내용(직종)은 무엇인가요? (예: 사무 보조 및 서류 정리)"},
+
+    # 3. 근로시간 및 휴일
+    {"field_id": "start_time", "question": "하루 근로를 시작하는 시간(시업 시간)을 알려주세요. (예: 09:00)"},
+    {"field_id": "end_time", "question": "하루 근로를 마치는 시간(종업 시간)을 알려주세요. (예: 18:00)"},
+    {"field_id": "rest_time", "question": "휴게 시간은 몇 시부터 몇 시까지인가요? (예: 12:00 - 13:00)"},
+    {"field_id": "work_day", "question": "일주일에 '총 몇 일'을 근무하나요? (숫자만 입력, 예: 5)"},
+    {"field_id": "Weekly_Paid_Holiday", "question": "주휴일(유급휴일)로 지정된 요일은 무엇인가요? (예: 매주 일요일)"},
+
+    # 4. 임금 (급여)
+    {"field_id": "salary_amount", "question": "월(일, 시간)급 총 임금액을 숫자로만 알려주세요. (예: 2500000)"},
+    {"field_id": "bonus", "question": "별도로 정기적인 상여금이 지급되나요? (예: 100만원 / 없음)"},
+    
+    {"field_id": "allowance", "question": "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"},
+    {"field_id": "other_allowance_1", "question": "기타 급여 첫 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_2", "question": "기타 급여 두 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_3", "question": "기타 급여 세 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+    {"field_id": "other_allowance_4", "question": "기타 급여 네 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
+
+    {"field_id": "salary_payment_date", "question": "임금은 매월 며칠에 지급되나요? (숫자만 입력, 예: 25)"},
+    {"field_id": "payment_method", "question": "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"},
+    
+    # 5. 사회보험
+    {"field_id": "employment_insurance", "question": "고용보험에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "industrial_accident_insurance", "question": "산재보험에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "national_pension", "question": "국민연금에 가입하나요? (예: 예/아니오)"},
+    {"field_id": "health_insurance", "question": "건강보험에 가입하나요? (예: 예/아니오)"},
+
+    # 11. 계약일
+    {"field_id": "contract_date_full", "question": "이 근로계약서를 최종적으로 작성한 날짜는 언제인가요? (예: 2025년 10월 20일)"},
+
+]
+
 TIP_LIST = [
     "1.**(초과근무 합의)** 법정근로시간(주 40시간)을 초과하여 근무하려면, 반드시 근로자와의 서면 합의가 필요합니다. 구두 합의는 추후 분쟁의 소지가 될 수 있습니다.",
     "2.** (청소년 근로)** 만 18세 미만 청소년의 법정근로시간은 하루 7시간, 주 35시간을 초과할 수 없으며, 본인이 동의해도 연장근로는 주 5시간까지만 가능합니다.",
@@ -34,124 +81,6 @@ TIP_LIST = [
     "20.** (벌금과 별개로 임금 지급 의무)** 사업주가 근로기준법 위반으로 벌금을 내더라도, 근로자에게 지급해야 할 주휴수당, 가산수당 등의 임금 지급 의무는 사라지지 않습니다.",
     "21.**(최저시급)2025년을 기준으로 최저시급은 10030원입니다. 이를 지키지 않을 경우, 5년 이하의 징역에 처할 수 있습니다."
 ]
-
-SIMILARITY_THRESHOLD = 0.4
-tip_embeddings: List[np.ndarray] = []
-tip_embeddings_lock = asyncio.Lock()
-
-
-# --- 2. (⭐️ 신규) 근로계약서 전용 RAG 함수 ---
-async def get_tip_embeddings():
-    """근로계약서 팁 목록 임베딩을 (최초 1회) 생성하고 캐시합니다."""
-    global tip_embeddings
-    async with tip_embeddings_lock:
-        if not tip_embeddings:
-            print("RAG 팁 목록 임베딩을 생성합니다... (근로계약서)")
-            resp = await client.embeddings.create(
-                model="text-embedding-3-small",
-                input=TIP_LIST
-            )
-            tip_embeddings = [np.array(d.embedding) for d in resp.data]
-    return tip_embeddings
-
-async def get_embedding(text: str):
-    resp = await client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text
-    )
-    return np.array(resp.data[0].embedding)
-
-async def find_top_relevant_tips(question: str, top_n=3):
-    embeddings = await get_tip_embeddings()
-    q_emb = await get_embedding(question)
-    sims = [np.dot(q_emb, t) for t in embeddings]
-
-    idx = np.argsort(sims)[-top_n:][::-1]
-    top_score = sims[idx[0]] if idx.size > 0 else 0.0
-    tips_str = "\n".join([TIP_LIST[i] for i in idx])
-    return tips_str, top_score
-
-async def get_rag_response(question: str, relevant_tips: str) -> str:
-    """(⭐️ 신규) 근로계약서(노무사) 전용 RAG 프롬프트"""
-    system_prompt = f"""
-    당신은 주어진 '참고 자료'만을 기반으로 답변하는 AI 노무사입니다. 다음 규칙을 엄격히 따르세요.
-
-    --- 참고 자료 ---
-    {relevant_tips}
-    -----------------
-
-    [규칙]
-    1.  [생각 단계]: 먼저 사용자의 질문을 분석하고, '참고 자료'에서 관련된 모든 조항을 찾습니다.
-    2.  [답변 생성 단계]: '생각 단계'의 논리를 바탕으로, 사용자에게 최종적인 답변을 친절하고 명확하게 생성합니다.
-    3.  [출처 명시 단계]: 답변 내용의 근거가 된 '참고 자료'의 '팁 번호'를 문장 끝에 (출처: 팁 N번) 형식으로 반드시 포함합니다.
-    """
-    resp = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question},
-        ],
-        temperature=0
-    )
-    return resp.choices[0].message.content.strip()
-
-# --- 1. (⭐️ 3. 수정) HTML + DOCX 모두를 위한 시나리오 ---
-CONTRACT_SCENARIO_LABOR = [
-    # 1. 당사자 정보
-    {"field_id": "employer", "question": "먼저, 계약을 체결하는 '사업주'의 명칭(또는 성함)은 무엇인가요? (예: (주)한빛유통)"},
-    {"field_id": "employee", "question": "이제 '근로자'의 성함은 무엇인가요? (예: 김철수)"},
-
-    # 2. 계약 기간 및 장소
-    {"field_id": "start_date_year", "question": "실제 근로를 시작하는 날(근로개시일)의 '년도'를 숫자로 알려주세요. (예: 2025)"},
-    {"field_id": "start_date_month", "question": "근로개시일의 '월'을 숫자로 알려주세요. (예: 11)"},
-    {"field_id": "workplace", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요. (예: 사업장과 동일)"},
-    {"field_id": "job_description", "question": "근로자가 수행할 업무 내용(직종)은 무엇인가요? (예: 사무 보조 및 서류 정리)"},
-
-    # 3. 근로시간 및 휴일
-    {"field_id": "start_time", "question": "하루 근로를 시작하는 시간(시업 시간)을 알려주세요. (예: 09:00)"},
-    {"field_id": "end_time", "question": "하루 근로를 마치는 시간(종업 시간)을 알려주세요. (예: 18:00)"},
-    {"field_id": "break_time", "question": "휴게 시간은 몇 시부터 몇 시까지인가요? (예: 12:00 - 13:00)"},
-    {"field_id": "work_day", "question": "일주일에 '총 몇 일'을 근무하나요? (숫자만 입력, 예: 5)"},
-    {"field_id": "off_day", "question": "주휴일(유급휴일)로 지정된 요일은 무엇인가요? (예: 매주 일요일)"},
-
-    # 4. 임금 (급여)
-    {"field_id": "wage", "question": "월(일, 시간)급 총 임금액을 숫자로만 알려주세요. (예: 2500000)"},
-    {"field_id": "bonus", "question": "별도로 정기적인 상여금이 지급되나요? (예: 100만원 / 없음)"},
-    
-    # (⭐️ 4. 수정) HTML에 맞춰 'allowance' (있음/없음) 질문 추가
-    {"field_id": "allowance", "question": "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"},
-    
-    # (HTML의 4개 입력칸)
-    {"field_id": "other_allowance_1", "question": "기타 급여 첫 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
-    {"field_id": "other_allowance_2", "question": "기타 급여 두 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
-    {"field_id": "other_allowance_3", "question": "기타 급여 세 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
-    {"field_id": "other_allowance_4", "question": "기타 급여 네 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
-    
-    {"field_id": "payday", "question": "임금은 매월 며칠에 지급되나요? (숫자만 입력, 예: 25)"},
-    {"field_id": "payment_method", "question": "임금 지급 방법은 '계좌이체'인가요, '직접 현금 지급'인가요?"},
-    
-    # 5. 사회보험
-    {"field_id": "employment_insurance", "question": "고용보험에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "industrial_accident_insurance", "question": "산재보험에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "national_pension", "question": "국민연금에 가입하나요? (예: 예/아니오)"},
-    {"field_id": "health_insurance", "question": "건강보험에 가입하나요? (예: 예/아니오)"},
-
-    # 11. 계약일
-    {"field_id": "contract_year", "question": "이 근로계약서를 최종적으로 작성한 날짜의 '년도'는 언제인가요? (예: 2025)"},
-    {"field_id": "contract_month", "question": "계약서 작성일의 '월'은 언제인가요? (예: 10)"},
-    {"field_id": "contract_day", "question": "계약서 작성일의 '일'은 언제인가요? (예: 20)"},
-
-    # HTML 하단 서명란
-    {"field_id": "employer_name", "question": "사업주 서명란의 '사업체명'을 다시 한번 입력해주세요. (예: (주)한빛유통)"},
-    {"field_id": "employer_phone", "question": "사업주 서명란의 '전화번호'를 입력해주세요."},
-    {"field_id": "employer_address", "question": "사업주 서명란의 '주소'를 입력해주세요."},
-    {"field_id": "employer_representative", "question": "사업주 서명란의 '대표자 성명'을 입력해주세요. (예: 김철수)"},
-    {"field_id": "employee_address", "question": "근로자 서명란의 '주소'를 입력해주세요."},
-    {"field_id": "employee_phone", "question": "근로자 서명란의 '연락처'를 입력해주세요."},
-    {"field_id": "employee_name", "question": "근로자 서명란의 '성명'을 입력해주세요. (예: 김철수)"},
-]
-
-
 async def get_smart_extraction(
     field_id: str, 
     user_message: str, 
@@ -178,6 +107,8 @@ async def get_smart_extraction(
         - DOCX 체크박스: "☑" (U+2612) / "☐" (U+2610) 값을 사용합니다.
     4.  `skip_next_n_questions`는 '없음'을 선택하여 다음 질문이 불필요할 때 사용됩니다.
     5.  반드시 지정된 JSON 형식으로만 반환해야 합니다.
+    6. filled_fields에는 현재 질문의 field_id와 관련된 키만 포함해야 합니다. 현재 질문이 business_name이라면, employee_name을 채우지 마세요.
+    7. 사용자의 답변(user_message)이 현재 질문(question)에 대한 답이 아니거나 다른 필드에 대한 정보일 경우, 해당 정보를 무시하고 status: "clarify"와 후속 질문을 반환하십시오.
 
     [JSON 반환 형식]
     {json_format_example}
@@ -185,22 +116,47 @@ async def get_smart_extraction(
     
     specific_examples = ""
     
-    # [날짜 - 년도]
-    if field_id.endswith("_year"):
+    if field_id.endswith("_date_full"):
         specific_examples = f"""
-        [예시 1: 날짜 (연도)]
+        [예시 1: 날짜 (연도 모호)]
         question: "{question}"
-        user_message: "2025년이요"
-        AI: {{"status": "success", "filled_fields": {{"{field_id}": "2025"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        user_message: "5월 8일이요."
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "네, 좋습니다. 몇 년도 5월 8일 말씀이신가요?"}}
+        
+        [예시 2: 날짜 (상대적 표현)]
+        question: "{question}"
+        user_message: "오늘이요."
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "{today.strftime('%Y년 %m월 %d일')}"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: 날짜 (형식화)]
+        question: "{question}"
+        user_message: "2025년 3월 7일"
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "2025년 03월 07일"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
 
     # [휴게시간] (두 값을 하나로)
-    elif field_id == "break_time":
+    elif field_id == "rest_time":
         specific_examples = f"""
-        [예시 1: 휴게시간]
-        question: "휴게 시간은 몇 시부터 몇 시까지인가요? (예: 12:00 - 13:00)"
+        [예시 1: '12:00 - 13:00' (시간 범위)]
+        question: "{question}"
         user_message: "12시부터 1시까지요"
-        AI: {{"status": "success", "filled_fields": {{"break_time_start": "12:00", "break_time_end": "13:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        # 1시(13:00) - 12시(12:00) = 60분
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: '60분' (분 명시)]
+        question: "{question}"
+        user_message: "총 60분입니다"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: '1시간' (시간 명시)]
+        question: "{question}"
+        user_message: "1시간이요"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "60"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 4: '1시간 30분']
+        question: "{question}"
+        user_message: "1시간 30분입니다"
+        AI: {{"status": "success", "filled_fields": {{"rest_time": "90"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     # [상여금] (HTML + DOCX 동시 지원)
@@ -210,8 +166,9 @@ async def get_smart_extraction(
         question: "별도로 정기적인 상여금이 지급되나요? (예: 100만원 / 없음)"
         user_message: "네 100만원이요"
         AI: {{"status": "success", "filled_fields": {
-            "bonus_amount": "100만원", 
-            "bonus_none": false,
+            "bonus_amount": "1,000,000원",           /* HTML/DOCX 금액 비움 */
+            "bonus_yes": false,           /* HTML '있음' 체크 해제 */
+            "bonus_none": true,           /* HTML '없음' 체크 */
             "is_bonus_paid_yes_o": "O",
             "is_bonus_paid_no_o": " "
         }, "skip_next_n_questions": 0, "follow_up_question": null}}
@@ -230,21 +187,22 @@ async def get_smart_extraction(
         question: "별도로 정기적인 상여금이 지급되나요? (예: 100만원 / 없음)"
         user_message: "네"
         AI: {{"status": "clarify", "filled_fields": {
+            "bonus_yes": true,            /* HTML '있음' 체크 */
+            "bonus_none": false,          /* HTML '없음' 체크 해제 */
             "bonus_none": false,
             "is_bonus_paid_yes_o": "O",
             "is_bonus_paid_no_o": " "
         }, "skip_next_n_questions": 0, "follow_up_question": "알겠습니다. 상여금은 얼마인가요?"}}
         """
 
-    # [기타급여 - 있음/없음] (⭐️ V5 수정)
     elif field_id == "allowance":
         specific_examples = """
         [예시 1: '있음' 선택 (다음 질문으로 이동)]
         question: "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"
         user_message: "네 있습니다"
         AI: {{"status": "success", "filled_fields": {
-            "other_allowance": null, /* HTML의 <input type="text">는 비워둠 */
-            "other_allowance_none": false,
+            "allowance_yes": true,        /* HTML '있음' 체크 */
+            "other_allowance_none": false,  /* HTML '없음' 체크 해제 */
             "is_allowance_paid_yes_o": "O",
             "is_allowance_paid_no_o": " "
         }, "skip_next_n_questions": 0, "follow_up_question": null}}
@@ -253,8 +211,8 @@ async def get_smart_extraction(
         question: "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"
         user_message: "아니요 없어요"
         AI: {{"status": "success", "filled_fields": {
-            "other_allowance": "",
-            "other_allowance_none": true,
+            "allowance_yes": false,       /* HTML '있음' 체크 해제 */
+            "other_allowance_none": true,   /* HTML '없음' 체크 */
             "is_allowance_paid_yes_o": " ",
             "is_allowance_paid_no_o": "O",
             "other_allowance_1": "", 
@@ -263,19 +221,49 @@ async def get_smart_extraction(
             "other_allowance_4": ""
         }, "skip_next_n_questions": 4, "follow_up_question": null}}
         """
-
-    # [기타급여 - 4개 항목]
     elif field_id.startswith("other_allowance_"):
+        # 현재 field_id에서 숫자 추출 (예: "other_allowance_2" -> 2)
+        try:
+            current_num = int(field_id.split('_')[-1]) # 1, 2, 3, 4
+        except ValueError:
+            current_num = 1 # 기본값
+
+        # '없음' 선택 시 스킵할 질문 수 계산 (남은 질문 수)
+        skip_count = 4 - current_num
+
+        # '없음' 선택 시 미리 채워둘 필드 생성
+        # 예: 2번에서 '없음' -> {"other_allowance_2": "", "other_allowance_3": "", "other_allowance_4": ""}
+        fields_to_fill_on_none = {}
+        for i in range(current_num, 5): # current_num 부터 4까지
+            fields_to_fill_on_none[f"other_allowance_{i}"] = ""
+        
+        filled_fields_str = str(fields_to_fill_on_none).replace("'", '"')
+
         specific_examples = f"""
-        [예시 1: '있음' 선택 (금액 입력)]
+        [예시 1: '있음' (항목 + 금액) -> 성공]
         question: "{question}"
         user_message: "네 식대 10만원이요"
-        AI: {{"status": "success", "filled_fields": {{"{field_id}": "식대 10만원"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "식대 100,000원"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
-        [예시 2: '없음' 선택 (공백 저장)]
+        [예시 2: '있음' (금액만 입력) -> 되묻기 (항목)]
+        question: "{question}"
+        user_message: "100000"
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "금액 100,000원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+
+        [예시 3: '있음' (항목만 입력) -> 되묻기 (금액)]
+        question: "{question}"
+        user_message: "교통비"
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "교통비 금액은 얼마인가요? (예: 50000원)"}}
+
+        [예시 4: '있음' (모호한 단위) -> 되묻기 (항목)]
+        question: "{question}"
+        user_message: "15만원입니다"
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "금액 15만원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+
+        [예시 5: '없음' 선택 (현재 + 나머지 공백 저장 및 스킵)]
         question: "{question}"
         user_message: "아니요 없어요"
-        AI: {{"status": "success", "filled_fields": {{"{field_id}": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {filled_fields_str}, "skip_next_n_questions": {skip_count}, "follow_up_question": null}}
         """
 
     # [지급방법] (HTML + DOCX 동시 지원)
@@ -324,7 +312,7 @@ async def get_smart_extraction(
             "{check_variable_name}": "☐"
         }, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
-    
+
     # [기본] 예시 (단순 텍스트)
     else: 
         specific_examples = f"""
@@ -368,40 +356,51 @@ async def get_smart_extraction(
 def find_next_question(
     current_content: Dict[str, Any]
 ) -> Tuple[Optional[Dict], int]:
-    """
-    현재 content를 기반으로 다음에 물어볼 질문(item)과 인덱스(index)를 반환합니다.
-    (HTML 'name' 속성 기준 V5 로직)
-    """
+    
     scenario = CONTRACT_SCENARIO_LABOR
     
+    # ⭐️ 필드 그룹별 완료 상태를 체크하는 헬퍼 함수
+    def is_field_completed(field_id: str, content: Dict[str, Any]) -> bool:
+        
+        # 1. 기본 체크: field_id가 content에 채워져 있으면 완료.
+        #    (대부분의 단순 텍스트, 숫자, 순서대로 진행해야 하는 예/아니오 필드 포함)
+        if field_id in content and content.get(field_id) != "__SKIPPED__":
+            return True
+            
+        # 2. 특수 필드 그룹 체크: DOCX 템플릿 변수로 완료 여부 확인
+        #    (여기에는 field_id와 실제로 저장되는 키가 다른 필드만 남깁니다.)
+        
+        if field_id == "bonus":
+            return "is_bonus_paid_yes_o" in content or "is_bonus_paid_no_o" in content
+            
+        elif field_id == "allowance":
+            return "is_allowance_paid_yes_o" in content or "is_allowance_paid_no_o" in content
+            
+        elif field_id.startswith("other_allowance_"):
+            if field_id in content:
+                return True
+            # 'allowance' 질문에서 '없음'을 선택하여 이 그룹이 스킵된 경우
+            return content.get("is_allowance_paid_no_o") == "O"
+            
+        elif field_id == "payment_method":
+            return "payment_method_direct_o" in content or "payment_method_bank_o" in content
+        
+        return False
+
+
     current_question_item: Optional[Dict] = None
     current_question_index = -1 
 
     for i, item in enumerate(scenario):
         field_id = item["field_id"]
         
-        # [기본 체크]
-        if field_id in current_content:
-            continue
-            
-        # [특수 로직 체크]
-        # 'bonus' 질문 차례인데, 'bonus_amount'나 'bonus_none'이 이미 채워져있으면 건너뛰기
-        if field_id == "bonus" and ("bonus_amount" in current_content or "bonus_none" in current_content):
+        # ⭐️ 헬퍼 함수를 사용하여 완료 여부를 통일된 기준으로 체크
+        if is_field_completed(field_id, current_content):
             continue
         
-        # 'allowance' (있음/없음) 질문을 체크
-        if field_id == "allowance" and ("other_allowance_none" in current_content or "is_allowance_paid_yes_o" in current_content):
-            continue
-            
-        # 'other_allowance_1' 질문 차례인데 'other_allowance_none'이 'true'이면 스킵
-        if field_id.startswith("other_allowance_") and current_content.get("other_allowance_none") == True:
+        # ⭐️ 스킵 로직 (allowance 관련)
+        if field_id.startswith("other_allowance_") and current_content.get("is_allowance_paid_no_o") == "O":
              continue
-            
-        if field_id == "payment_method" and ("direct_pay" in current_content or "bank_pay" in current_content):
-            continue
-        
-        if field_id == "break_time" and "break_time_start" in current_content:
-            continue
             
         # 다음 질문 찾음
         current_question_index = i
@@ -412,136 +411,130 @@ def find_next_question(
         current_question_index = len(scenario)
 
     return current_question_item, current_question_index
-# --- ⬆️ 여기까지 ⬆️ ---
 
+# async def process_message(
+#     db: AsyncSession,
+#     contract,
+#     message: str
+# ) -> schemas.ChatResponse:
 
+#     content = contract.content or {}
 
-async def process_message(
-    # (⭐️ 수정) 이 함수는 DB 저장을 위해 db와 contract가 필요합니다.
-    db: AsyncSession,
-    contract: models.Contract,
-    message: str
-) -> schemas.ChatResponse:
+#     # ✅ 1) 다음 질문 찾기
+#     current_item, current_index = find_next_question(content)
 
-    content = contract.content or {}
+#     # ✅ 2) 아무 입력 없으면 "시작/재개"
+#     if not message.strip() or message.strip() == "string":
+#         if current_item:
+#             return schemas.ChatResponse(
+#                 reply=current_item["question"],
+#                 updated_field=None,
+#                 is_finished=False,
+#                 full_contract_data=content
+#             )
+#         else:
+#             return schemas.ChatResponse(
+#                 reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
+#                 updated_field=None,
+#                 is_finished=True,
+#                 full_contract_data=content
+#             )
+
+#     # ✅ 4) 폼 답변 처리
+#     if not current_item:
+#         return schemas.ChatResponse(
+#             reply="모든 항목이 이미 채워졌습니다!",
+#             updated_field=None,
+#             is_finished=True,
+#             full_contract_data=content
+#         )
+
+#     # 실제 필드 처리
+#     ai = await get_smart_extraction(
+#         current_item["field_id"],
+#         message,
+#         current_item["question"]
+#     )
+
+#     # ✅ AI가 반환한 filled_fields 적용
+#     new_fields = ai.get("filled_fields", {})
+
+#     # ⭐️ 디버그 포인트 1: AI가 어떤 필드를 채우려고 했는가?
+#     print(f"DEBUG_1: Current Field: {current_item['field_id']}, AI Filled: {new_fields}")
+#     content.update(new_fields)
+
+#     # ✅ skip_next_n_questions 적용
+#     skip_n = ai.get("skip_next_n_questions", 0)
+#     for _ in range(skip_n):
+#         # ⭐️ 중요한 수정: find_next_question을 재호출하여 현재 상태를 기준으로 스킵할 다음 필드를 찾습니다.
+#         next_item_to_skip, idx = find_next_question(content)
+#         if next_item_to_skip:
+#             content[next_item_to_skip["field_id"]] = "__SKIPPED__"
+#         else:
+#             break
+
+#         # ⭐️ 디버그 포인트 2: DB 저장 직전, content에 employee_name이 존재하는가?
+#     print(f"DEBUG_2: Content BEFORE DB Save: {content.get('employer_name')}, {content.get('employee_name')}")
+#     # AI가 content를 수정한 후, 응답을 반환하기 전에 DB에 저장합니다.
+#     try:
+#         # (주의!) crud가 import 되어 있어야 합니다 (from .. import crud)
+#         contract = await crud.update_contract_content_multiple(db, contract, content)
+#         # ⭐️ 디버그 포인트 3: DB 저장 후, contract 객체에 employee_name이 존재하는가?
+#         print(f"DEBUG_3: Contract Content AFTER DB Save: {contract.content.get('employee_name')}")
+#         content = contract.content or {}
+#     except Exception as e:
+#         print(f"DB 업데이트 실패: {e}")
+#         return schemas.ChatResponse(
+#             reply=f"데이터 저장 중 오류가 발생했습니다: {e}",
+#             updated_field=None,
+#             is_finished=False,
+#             full_contract_data=contract.content or {} # 롤백된 원본
+#         )
+
+#     # ✅ follow-up 질문이 있으면 그대로 반환
+#     if ai.get("status") == "clarify":
+#         return schemas.ChatResponse(
+#             reply=ai["follow_up_question"],
+#             updated_field=None,
+#             is_finished=False,
+#             full_contract_data=content
+#         )
+
+#     # ⭐️ 디버그 포인트 4: 다음 질문 찾기 직전, content에 employee_name이 존재하는가?
+#     print(f"DEBUG_4: Content BEFORE find_next: {content.get('employee_name')}")
+#        # ✅ 다음 질문 찾기
+#     next_item, _ = find_next_question(content)
+
+#     # new_fields 에 값이 있을 때, UpdatedField 리스트로 변환
+#     def make_updated_field_list(fields: Dict[str, Any]) -> Optional[List[schemas.UpdatedField]]:
+#         if not fields:
+#             return None
+#         lst: List[schemas.UpdatedField] = []
+#         for k, v in fields.items():
+#             # schemas.UpdatedField 모델을 직접 생성해서 타입 안전성 확보
+#             lst.append(schemas.UpdatedField(field_id=k, value=v))
+#         return lst
+
+#     updated_field_list = make_updated_field_list(new_fields)
+
+#     if next_item:
+#         return schemas.ChatResponse(
+#             reply=next_item["question"],
+#             updated_field=updated_field_list,   # 이제 항상 리스트 또는 None
+#             is_finished=False,
+#             full_contract_data=content
+#         )
+
+#     else:
+#         # 모든 항목 작성 완료 상태
+#         return schemas.ChatResponse(
+#             reply="모든 항목이 작성되었습니다.",
+#             updated_field=updated_field_list,   # 마지막에 업데이트된 필드(있으면 리스트), 없으면 None
+#             is_finished=True,
+#             full_contract_data=content
+#         )
     
-    # (참고: chat_history는 schemas.ChatResponse에 없으므로 임시 제거)
-    # new_chat_history = contract.chat_history.copy() if ...
 
-    # ✅ 1) 다음 질문 찾기
-    current_item, current_index = find_next_question(content)
-    current_bot_question = current_item["question"] if current_item else None
-
-    # ✅ 2) 아무 입력 없으면 "시작/재개"
-    if not message.strip() or message.strip() == "string":
-        if current_item:
-            return schemas.ChatResponse(
-                reply=current_item["question"],
-                updated_field=None,
-                is_finished=False,
-                full_contract_data=content
-            )
-        else:
-            return schemas.ChatResponse(
-                reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
-                updated_field=None,
-                is_finished=True,
-                full_contract_data=content
-            )
-
-    # ✅ 3) RAG 여부 판단 (이 파일의 RAG 함수 사용)
-    tips, score = await find_top_relevant_tips(message)
-    is_legal_question = score >= SIMILARITY_THRESHOLD
-
-    if is_legal_question:
-        rag = await get_rag_response(message, tips)
-        follow = (
-            f"\n\n[이어서 진행]\n{current_item['question']}"
-            if current_item else "\n\n계약서 작성을 모두 완료했습니다."
-        )
-        return schemas.ChatResponse(
-            reply=rag + follow,
-            updated_field=None,
-            is_finished=(current_item is None),
-            full_contract_data=content
-        )
-
-    # ✅ 4) 폼 답변 처리
-    if not current_item:
-        return schemas.ChatResponse(
-            reply="모든 항목이 이미 채워졌습니다!",
-            updated_field=None,
-            is_finished=True,
-            full_contract_data=content
-        )
-    
-    # (⭐️ 수정) 'client' 인자 전달 제거
-    ai = await get_smart_extraction(
-        current_item["field_id"],
-        message,
-        current_item["question"]
-    )
-
-    new_fields = ai.get("filled_fields", {})
-    
-    # (⭐️ 수정) AI가 반환한 filled_fields를 content에 즉시 반영 (DB 저장을 위해)
-    content.update(new_fields)
-
-    skip_n = ai.get("skip_next_n_questions", 0)
-    for _ in range(skip_n):
-        # (⭐️ 수정) 'content'가 업데이트되었으므로 find_next_question을 다시 호출
-        _, idx = find_next_question(content)
-        if idx < len(CONTRACT_SCENARIO_LABOR):
-             # (⭐️ 수정) DB 저장을 위해 스킵된 필드도 content에 반영
-            content[CONTRACT_SCENARIO_LABOR[idx]["field_id"]] = "__SKIPPED__"
-
-    # --- ⬇️ (⭐️ 5. 핵심 수정) DB 저장 로직 추가 ⬇️ ---
-    # (foreign_ai.py에는 이 부분이 누락되어 있었습니다)
-    try:
-        # crud.py의 함수를 호출하여 DB에 최종 content를 저장
-        await crud.update_contract_content_multiple(db, contract, content)
-    except Exception as e:
-        print(f"DB 업데이트 실패: {e}")
-        # (DB 저장 실패 시, 사용자에게 에러 반환)
-        return schemas.ChatResponse(
-            reply=f"데이터 저장 중 오류가 발생했습니다: {e}",
-            updated_field=None,
-            is_finished=False,
-            full_contract_data=contract.content or {} # 롤백된 원본 데이터
-        )
-    # --- ⬆️ DB 저장 로직 끝 ⬆️ ---
-
-    # ✅ 6) follow-up 질문이 있으면 그대로 반환 (DB 저장은 위에서 했음)
-    if ai.get("status") == "clarify":
-        return schemas.ChatResponse(
-            reply=ai["follow_up_question"],
-            updated_field=None, # DB는 업데이트되었지만, FR엔 새 필드 정보 안 줌
-            is_finished=False,
-            full_contract_data=content
-        )
-
-    # ✅ 7) 다음 질문 찾기
-    next_item, _ = find_next_question(content)
-
-    # (⭐️ 수정) schemas.UpdatedField 형식에 맞게 변환
-    updated_field_list = [
-        schemas.UpdatedField(field_id=k, value=v) for k, v in new_fields.items()
-    ] if new_fields else None
-    
-    if next_item:
-        return schemas.ChatResponse(
-            reply=next_item["question"],
-            updated_field=updated_field_list,
-            is_finished=False,
-            full_contract_data=content
-        )
-    else:
-        return schemas.ChatResponse(
-            reply="모든 항목이 작성되었습니다.",
-            updated_field=updated_field_list,
-            is_finished=True,
-            full_contract_data=content
-        )
 # --- 4. DOCX 렌더링 함수 ---
 # (이 함수는 HTML name 속성이 아닌, DOCX {{...}} 변수명 기준으로 작동해야 함)
 TEMPLATE_FILE = "working.docx" 
@@ -568,7 +561,6 @@ async def render_docx(contract: models.Contract) -> DocxTemplate:
         "employer_name", "employee_name", "start_date_full", "work_location", 
         "job_description", "start_time", "end_time", "rest_time", "work_day", 
         "Weekly_Paid_Holiday", "salary_amount", "bonus_amount", 
-        "allowance_details", # (⭐️ V5 수정) DOCX는 4개 항목을 하나의 필드로 쓸 수 있음
         "other_allowance_1", "other_allowance_2", "other_allowance_3", "other_allowance_4",
         "salary_payment_date", "contract_date_full", "business_name", 
         "business_phone", "business_address", "employee_address", "employee_phone"
@@ -582,22 +574,6 @@ async def render_docx(contract: models.Contract) -> DocxTemplate:
         else:
             # true/false, O/X, ☑/☐ 등은 그대로 사용
             context[key] = value
-            
-    # (⭐️ 8. 신규) 4개의 기타급여를 'allowance_details' 하나로 합치기
-    # (DOCX 템플릿이 "기타급여(제수당 등) : {{ allowance_details }} 원" 형태일 경우)
-    details_list = [
-        raw_context.get("other_allowance_1", ""),
-        raw_context.get("other_allowance_2", ""),
-        raw_context.get("other_allowance_3", ""),
-        raw_context.get("other_allowance_4", "")
-    ]
-    # 빈 문자열이 아닌 항목들만 쉼표(,)로 연결
-    final_details = ", ".join(filter(None, details_list))
-    
-    # 폰트 깨짐 방지를 위해 RichText로 다시 변환
-    rt_details = RichText()
-    rt_details.add(final_details)
-    context["allowance_details"] = rt_details # 템플릿 변수명
 
     doc.render(context)
     return doc
