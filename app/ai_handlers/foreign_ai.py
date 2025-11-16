@@ -31,7 +31,9 @@ CONTRACT_SCENARIO = [
     {"field_id": "phone_num", "question": "휴대 전화 번호를 알려주세요"},
     {"field_id": "address_in_home_country", "question": "본국 주소를 알려주세요."},
     {"field_id": "email", "question": "이메일을 알려주세요"},
-    
+    {"field_id": "refund_bank_account", "question": "반환용 계좌번호를 알려주세요 (필요시)"},
+    {"field_id": "foreign_num", "question": "본인의 외국인 등록번호를 알려주세요(총 13자리)"},
+
     # --- 2. 신청 항목 (첫 번째 분기점) ---
     {"field_id": "application_type", "question": "신청/신고 항목을 선택해주세요.\n1. 외국인 등록, 2. 등록증 재발급, 3. 체류기간 연장허가, 4. 체류자격 변경허가, 5. 체류자격 부여,\n6. 체류자격외 활동허가, 7. 근무처 변경/추가허가, 8. 체류지 변경신고, 9. 등록사항 변경신고)"},
     
@@ -43,7 +45,7 @@ CONTRACT_SCENARIO = [
     {"field_id": "app_other_desired", "question": "허가받고자 하는 활동의 내용은 무엇인가요?"},
     
     # --- 3. 직업 (두 번째 분기점) ---
-    {"field_id": "occupation_type", "question": "현재 직업이 '학생'인가요, '근무자'인가요, 아니면 '기타/미취학'인가요?"},
+    {"field_id": "occupation_type", "question": "현재 직업이 '학생'인가요, '근무자'인가요, 아니면 둘 다 아닌가요?"},
 
     # 3-1. [조건부 질문 4] '학생' 선택 시
     {"field_id": "school_status", "question": "재학여부를 알려주세요.(미취학, 초, 중, 고)"},
@@ -51,17 +53,15 @@ CONTRACT_SCENARIO = [
     {"field_id": "school_name", "question": "학교이름을 알려주세요"},
 
     # 3-2. [조건부 질문 5] '근무자' 선택 시
-    {"field_id": "current_workplace", "question": "현재 근무처(회사명)를 알려주세요."},
-    {"field_id": "business_regis_num_current", "question": "현재 근무처의 사업자등록 번호를 알려주세요."},
+    {"field_id": "current_workplace", "question": "이전까지 일하던 근무처(회사명)를 알려주세요."},
+    {"field_id": "cur_business_regis_num", "question": "이전까지 일했던 근무처의 사업자등록 번호를 알려주세요."},
+    {"field_id": "new_workplace", "question": "앞으로 일할 근무처(회사명)를 알려주세요."},
+    {"field_id": "new_business_regis_num", "question": "앞으로 일할 근무처의 사업자등록 번호를 알려주세요."},
     {"field_id": "occupation", "question": "현재 직업(직종)을 알려주세요."},
     {"field_id": "annual_income", "question": "연 소득 금액을 만원 단위로 알려주세요."},
     
-    # 3-3. [조건부 질문 6] '근무처 변경' 신청 시
-    {"field_id": "new_workplace", "question": "새로 근무할 예정인 장소를 알려주세요."},
-    {"field_id": "business_regis_num_new", "question": "새 근무처의 사업자등록 번호를 알려주세요."},
+    {"field_id": "intended_period_reentry", "question": "재입국 신청기간을 알려주세요."}
 
-    # --- 4. 공통 마무리 ---
-    {"field_id": "refund_bank_account", "question": "반환용 계좌번호를 알려주세요 (필요시)"},
 ]
 
 TIP_LIST = [
@@ -118,7 +118,8 @@ TIP_LIST = [
     "51. (외국인의 정보제공 의무-제81조의3 제1항) 제10조의2제1항제1호에 따른 단기체류자격을 가진 외국인(이하 “숙박외국인”이라 한다)은 「감염병의 예방 및 관리에 관한 법률」에 따른 위기경보의 발령 또는 「국민보호와 공공안전을 위한 테러방지법」에 따른 테러경보의 발령 등 법무부령으로 정하는 경우에 한정하여 다음 각 호의 어느 하나에 해당하는 자(이하 “숙박업자”라 한다)가 경영하는 숙박업소에서 머무는 경우 숙박업자에게 여권 등 법무부령으로 정하는 자료를 제공하여야 한다."
 ]
 
-SIMILARITY_THRESHOLD = 0.4
+# 0.4로 설정하니깐 폼 답변인데 rag질문으로 인식되는 문제가 자주 발생해서 0.7로 높였음
+SIMILARITY_THRESHOLD = 0.7
 
 tip_embeddings: List[np.ndarray] = []
 tip_embeddings_lock = asyncio.Lock()
@@ -223,9 +224,12 @@ async def get_smart_extraction(
     2.  `skip_next_n_questions`는 사용자의 답변으로 인해 불필요해진 *다음* 질문들의 '개수'입니다. (분기 로직의 핵심)
     3.  [생년월일] 형식은 'YYYY', 'MM', 'DD'로 분리하여 저장해야 합니다.
     4.  [성별]은 'sex_m_check', 'sex_f_check' 변수에 "☒" 또는 "☐"로 채워야 합니다.
-    5.  [신청 항목]은 해당하는 `_check` 변수에 "☒"를, 나머지는 "☐"를 채워야 합니다.
-    6.  [직업]은 해당하는 `_check` 변수에 "☒"를, 나머지는 "☐"를 채워야 합니다.
-    7.  반드시 지정된 JSON 형식으로만 반환해야 합니다.
+    5.  [신청 항목]은 10개의 'fore_resident_regis', 're_regis_card' 등의 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    6.  [직업] (occupation_type) 질문은 사용자 답변을 저장하지 않습니다.
+    7.  [재학여부]는 'non', 'ele', 'mid', 'hi' 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    8.  [학교종류]는 'ac', 'no_ac', 'alt' 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    9.  *중요*: 스킵하는 필드들에는 빈 문자열 ""을 채워서 docx 템플릿의 {{변수}} 태그가 남지 않게 해야 합니다.
+    10. 반드시 지정된 JSON 형식으로만 반환해야 합니다.
 
     [JSON 반환 형식]
     {json_format_example}
@@ -272,43 +276,198 @@ async def get_smart_extraction(
         skip_count_for_simple_app = 3 
         
         specific_examples = f"""
-        [템플릿 변수명 목록]
-        "app_reg_check", "app_reissue_check", "app_ext_check", "app_change_check", "app_grant_check", "app_other_check", ... (기타 모든 신청 변수)
+        [템플릿 변수명 목록] (총 10개)
+        "fore_resident_regis", "re_regis_card", "ex_sojo_peri", "chg_stus_sojo", "grant_sojourm", "engage_act_not_sojo", "chg_add_wrkplc", "reen_permit", "alt_residence", "chg_registration"
 
         [예시 1: '외국인 등록' 선택 (희망 자격 질문 3개 스킵)]
         question: "{question}"
         user_message: "외국인 등록이요"
-        AI: {{"status": "success", "filled_fields": {{"app_reg_check": "☒", "app_reissue_check": "☐", "app_change_check": "☐", "app_grant_check": "☐", "app_other_check": "☐", ...}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☒", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, 
+            "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
 
         [예시 2: '체류자격 변경허가' 선택 (다음 '희망 자격' 질문으로 이동)]
         question: "{question}"
         user_message: "체류자격 변경허가 신청할게요"
-        AI: {{"status": "success", "filled_fields": {{"app_reg_check": "☐", "app_reissue_check": "☐", "app_change_check": "☒", "app_grant_check": "☐", "app_other_check": "☐", ...}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☒", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, 
+            "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 3: '체류자격 부여' 선택 (질문 1개 스킵)]
+        question: "{question}"
+        user_message: "자격 부여"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☒", "engage_act_not_sojo": "☐",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}},
+            "skip_next_n_questions": 1, "follow_up_question": null}}
+
+        [예시 4: '체류자격외 활동허가' 선택 (질문 0개 스킵)]
+        question: "{question}"
+        user_message: "6번이요"
+        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
+            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☒",
+            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}},
+            "skip_next_n_questions": 2, "follow_up_question": null}}
+        """
+        
+    # --------------------------------------------------------------------
+    # [신규 추가] 분기 1-1: '체류자격 변경' 희망 자격
+    # (application_type에서 이 질문으로 넘어옴)
+    # (이 질문에 답하면, 남은 조건부 질문 2개(app_grant, app_other)를 스킵)
+    # --------------------------------------------------------------------
+    elif field_id == "app_change_desired":
+        specific_examples = f"""
+        [예시 1: '체류자격 변경' 답변 추출 (다음 조건부 질문 2개 스킵)]
+        question: "{question}"
+        user_message: "E-7 자격으로 변경하고 싶습니다."
+        AI: {{"status": "success", "filled_fields": {{"app_change_desired": "E-7"}}, "skip_next_n_questions": 2, "follow_up_question": null}}
+        
+        [예시 2: '체류자격 변경' 답변 추출 (다음 조건부 질문 2개 스킵)]
+        question: "{question}"
+        user_message: "F2 비자요"
+        AI: {{"status": "success", "filled_fields": {{"app_change_desired": "F-2"}}, "skip_next_n_questions": 2, "follow_up_question": null}}
         """
 
+    # --------------------------------------------------------------------
+    # [신규 추가] 분기 1-2: '체류자격 부여' 희망 자격
+    # (application_type에서 이 질문으로 넘어옴)
+    # (이 질문에 답하면, 남은 조건부 질문 1개(app_other)를 스킵)
+    # --------------------------------------------------------------------
+    elif field_id == "app_grant_desired":
+        specific_examples = f"""
+        [예시 1: '체류자격 부여' 답변 추출 (다음 조건부 질문 1개 스킵)]
+        question: "{question}"
+        user_message: "F-2 비자를 받고 싶어요."
+        AI: {{"status": "success", "filled_fields": {{"app_grant_desired": "F-2"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        """
+
+    # --------------------------------------------------------------------
+    # [신규 추가] 분기 1-3: '체류자격외 활동' 내용
+    # (application_type에서 이 질문으로 넘어옴)
+    # (이 질문은 마지막 조건부 질문이므로 스킵 없음)
+    # --------------------------------------------------------------------
+    elif field_id == "app_other_desired":
+        specific_examples = f"""
+        [예시 1: '체류자격외 활동' 답변 추출 (스킵 없음)]
+        question: "{question}"
+        user_message: "학교에서 조교로 일하고 싶습니다."
+        AI: {{"status": "success", "filled_fields": {{"app_other_desired": "학교 조교 활동"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: '체류자격외 활동' 답변 추출 (스킵 없음)]
+        question: "{question}"
+        user_message: "유튜브 채널 운영"
+        AI: {{"status": "success", "filled_fields": {{"app_other_desired": "유튜브 채널 운영"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
     # [분기 2: 직업]
     elif field_id == "occupation_type":
         # ❗️ [중요] 시나리오 리스트(1단계)를 기준으로 건너뛸 질문 개수 계산
         # 예: '학생' 질문(3개), '근무자' 질문(4개), '근무처 변경' 질문(2개)
         student_q_count = 3
-        worker_q_count = 4
-        new_worker_q_count = 2
+        worker_q_count = 6
+        
+        print("start OT")
+        # 1. '학생' 선택 시: '근무자' 필드를 비우고, '근무자' 질문(6개) 스킵
+        student_example_fields = {
+            "current_workplace": "__SKIPPED__", 
+            "cur_business_regis_num": "__SKIPPED__", 
+            "new_workplace": "__SKIPPED__", 
+            "new_business_regis_num": "__SKIPPED__",
+            "occupation": "__SKIPPED__",
+            "annual_income": "__SKIPPED__"
+        }
+        student_example_json = json.dumps({
+            "status": "success",
+            "filled_fields": student_example_fields,
+            "skip_next_n_questions": 0, # [수정] 0 -> worker_q_count
+            "follow_up_question": None
+        })
+
+        # 2. '근무자' 선택 시: '학생' 필드를 비우고, '학생' 질문(3개) 스킵
+        worker_example_fields = {
+            "non": "☐", "ele": "☐", "mid": "☐", "hi": "☐",
+            "ac": "☐", "no_ac": "☐", "alt": "☐",
+            "school_name": ""
+        }
+        worker_example_json = json.dumps({
+            "status": "success",
+            "filled_fields": worker_example_fields,
+            "skip_next_n_questions": student_q_count,
+            "follow_up_question": None
+        })
+        
+        # 3. '기타' 선택 시: '학생' + '근무자' 필드를 비우고, '학생'(3개) + '근무자'(6개) 질문 스킵
+        other_example_fields = {**student_example_fields, **worker_example_fields}
+        other_example_json = json.dumps({
+            "status": "success",
+            "filled_fields": other_example_fields,
+            "skip_next_n_questions": student_q_count + worker_q_count,
+            "follow_up_question": None
+        })
         
         specific_examples = f"""
-        [템플릿 변수명 목록]
-        "occ_student_check", "occ_worker_check", "occ_other_check"
-
-        [예시 1: '학생' 선택 (근무자 관련 질문 4+2=6개 스킵)]
+        [예시 1: '학생' 선택 (다음 질문으로 이동, {len(student_example_fields)}개 필드 비움)]
         question: "{question}"
         user_message: "저 학생이에요"
-        AI: {{"status": "success", "filled_fields": {{"occ_student_check": "☒", "occ_worker_check": "☐", "occ_other_check": "☐"}}, "skip_next_n_questions": {worker_q_count + new_worker_q_count}, "follow_up_question": null}}
+        AI: {student_example_json}
 
-        [예시 2: '근무자' 선택 (학생 관련 질문 3개 스킵)]
+        [예시 2: '근무자' 선택 (학생 관련 질문 {student_q_count}개 스킵 + {len(worker_example_fields)}개 필드 비움)]
         question: "{question}"
         user_message: "회사 다니고 있어요"
-        AI: {{"status": "success", "filled_fields": {{"occ_student_check": "☐", "occ_worker_check": "☒", "occ_other_check": "☐"}}, "skip_next_n_questions": {student_q_count}, "follow_up_question": null}}
-        """
+        AI: {worker_example_json}
         
+        [예시 3: '기타' 선택 (학생+근무자 질문 {student_q_count + worker_q_count}개 스킵 + {len(other_example_fields)}개 필드 비움)]
+        question: "{question}"
+        user_message: "둘 다 아닙니다."
+        AI: {other_example_json}
+        """
+        print("slelect occpu_type")
+        
+    elif field_id == "school_status":
+        specific_examples = f"""
+        [템플릿 변수명 목록]
+        "non", "ele", "mid", "hi"
+
+        [예시 1: '초' 선택]
+        question: "{question}"
+        user_message: "초등학교요"
+        AI: {{"status": "success", "filled_fields": {{"non": "☐", "ele": "☒", "mid": "☐", "hi": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 2: '미취학' 선택]
+        question: "{question}"
+        user_message: "미취학입니다"
+        AI: {{"status": "success", "filled_fields": {{"non": "☒", "ele": "☐", "mid": "☐", "hi": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        print("select school status")
+        
+    # ❗️ [신규 추가] 분기 2-2: 학교 종류
+    elif field_id == "school_type":
+        specific_examples = f"""
+        [템플릿 변수명 목록]
+        "ac", "no_ac", "alt"
+
+        [예시 1: '교육청 인가' 선택]
+        question: "{question}"
+        user_message: "교육청 인가받은 곳이에요"
+        AI: {{"status": "success", "filled_fields": {{"ac": "☒", "no_ac": "☐", "alt": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 2: '대안학교' 선택]
+        question: "{question}"
+        user_message: "대안학교"
+        AI: {{"status": "success", "filled_fields": {{"ac": "☐", "no_ac": "☐", "alt": "☒"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        print("select school type")
+        
+    elif field_id == "school_name":
+        specific_examples = f"""
+        [예시 1: 학교 이름 입력]
+        question: "{question}"
+        user_message: "대구고등학교 입니다."
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "대구고등학교"}}, "skip_next_n_questions": 6, "follow_up_question": null}}
+        """
+
     # [기본 텍스트] 예시
     else: 
         specific_examples = f"""
@@ -379,15 +538,26 @@ def find_next_question(
         # ==========================
         if field_id == "sex" and ("sex_m_check" in current_content or "sex_f_check" in current_content):
             continue
-        if field_id == "application_type" and (
-            "app_reg_check" in current_content or "app_change_check" in current_content
-        ):
-            continue
-        if field_id == "occupation_type" and (
-            "occ_student_check" in current_content or "occ_worker_check" in current_content
-        ):
-            continue
+        if field_id == "application_type":
+            app_keys = ["fore_resident_regis", "re_regis_card", "ex_sojo_peri", "chg_stus_sojo", "grant_sojourm", "engage_act_not_sojo",
+                        "chg_add_wrkplc", "reen_permit", "alt_residence", "chg_registration"]
+            if any(key in current_content for key in app_keys):
+                continue
+        if field_id == "occupation_type":
+            if ("school_name" in current_content or 
+                "current_workplace" in current_content or
+                field_id in current_content):
+                continue
+        if field_id == "school_status":
+            status_keys = ["non", "ele", "mid", "hi"]
+            if any(key in current_content for key in status_keys):
+                continue
 
+        if field_id == "school_type":
+            type_keys = ["ac", "no_ac", "alt"]
+            if any(key in current_content for key in type_keys):
+                continue
+            
         # ==========================
         # (4) 다음 질문 확정
         # ==========================
@@ -408,10 +578,18 @@ async def process_message(
 ) -> schemas.ChatResponse:
 
     content = contract.content or {}
+    
+    if "apply_date" not in content:
+        today = datetime.date.today()
+        content["apply_date"] = today.strftime("%Y-%m-%d")
+    
+    new_chat_history = contract.chat_history.copy() if isinstance(contract.chat_history, list) else []
 
     # ✅ 1) 다음 질문 찾기
     current_item, current_index = find_next_question(content)
-
+    
+    current_bot_question = current_item["question"] if current_item else None
+        
     # ✅ 2) 아무 입력 없으면 "시작/재개"
     if not message.strip():
         if current_item:
@@ -419,14 +597,16 @@ async def process_message(
                 reply=current_item["question"],
                 updated_field=None,
                 is_finished=False,
-                full_contract_data=content
+                full_contract_data=content,
+                chat_history=new_chat_history
             )
         else:
             return schemas.ChatResponse(
                 reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
                 updated_field=None,
                 is_finished=True,
-                full_contract_data=content
+                full_contract_data=content,
+                chat_history=new_chat_history
             )
 
     # ✅ 3) RAG 여부 판단
@@ -435,6 +615,9 @@ async def process_message(
 
     if is_legal_question:
         rag = await get_rag_response(message, tips)
+
+        new_chat_history.append({"sender": "user", "message": message})
+        new_chat_history.append({"sender": "bot", "message": rag})
 
         follow = (
             f"\n\n이어서 진행합니다.\n{current_item['question']}"
@@ -445,7 +628,8 @@ async def process_message(
             reply=rag + follow,
             updated_field=None,
             is_finished=(current_item is None),
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
     # ✅ 4) 폼 답변 처리
@@ -454,8 +638,12 @@ async def process_message(
             reply="모든 항목이 이미 채워졌습니다!",
             updated_field=None,
             is_finished=True,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
+    
+    new_chat_history.append({"sender": "bot", "message": current_bot_question})
+    new_chat_history.append({"sender": "user", "message": message})
 
     # 실제 필드 처리
     ai = await get_smart_extraction(
@@ -469,20 +657,24 @@ async def process_message(
     new_fields = ai.get("filled_fields", {})
     content.update(new_fields)
 
-    # ✅ skip_next_n_questions 적용
     skip_n = ai.get("skip_next_n_questions", 0)
     for _ in range(skip_n):
-        _, idx = find_next_question(content)
+        # ❗️ content가 이미 update된 상태에서 find_next_question을 호출
+        _, idx = find_next_question(content) 
         if idx < len(CONTRACT_SCENARIO):
+            # 다음 질문을 "__SKIPPED__"로 강제 마킹하여 채움
             content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
-
+    
     # ✅ follow-up 질문이 있으면 그대로 반환
     if ai.get("status") == "clarify":
+        follow_up_q = ai["follow_up_question"]
+        new_chat_history.append({"sender": "bot", "message": follow_up_q})
         return schemas.ChatResponse(
             reply=ai["follow_up_question"],
             updated_field=None,
             is_finished=False,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
        # ✅ 다음 질문 찾기
@@ -505,7 +697,8 @@ async def process_message(
             reply=next_item["question"],
             updated_field=updated_field_list,   # 이제 항상 리스트 또는 None
             is_finished=False,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
     else:
@@ -514,7 +707,8 @@ async def process_message(
             reply="모든 항목이 작성되었습니다.",
             updated_field=updated_field_list,   # 마지막에 업데이트된 필드(있으면 리스트), 없으면 None
             is_finished=True,
-            full_contract_data=content
+            full_contract_data=content,
+            chat_history=new_chat_history
         )
 
 
@@ -583,7 +777,12 @@ async def render_docx(contract):
 
     doc = DocxTemplate(template_path)
     context = contract.content or {}
-    doc.render(context)
+    clean_context = {
+        key: value 
+        for key, value in context.items() 
+        if value != "__SKIPPED__"
+    }
+    doc.render(clean_context)
     return doc
     
     '''# docxtpl 객체 생성 및 템플릿 로드

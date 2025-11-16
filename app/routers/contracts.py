@@ -10,6 +10,12 @@ from ..dependencies import verify_supabase_token
 from uuid import UUID
 from urllib.parse import quote
 
+TEMPLATE_MAPPING = {
+    "근로계약서": "working.html",
+    "통합신청서": "foreign.html"
+    # "다른계약서": "other_template.html",
+}
+
 router = APIRouter(
     prefix="/api/contracts",
     tags=["contracts"],
@@ -79,9 +85,18 @@ async def get_contract_details(
     db_contract.next_question = next_question_text
     db_contract.status = current_status # DB에서 읽어온 status (또는 방금 변경한 status)
     
+    contract_type = db_contract.contract_type
+    template_filename = TEMPLATE_MAPPING.get(contract_type)
+    if template_filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=f"'{contract_type}' 유형의 계약서는 HTML 미리보기를 지원하지 않습니다."
+        )
+    
     # ✅ [핵심 추가] HTML 템플릿 읽기
-    html_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", "working.html")
+    html_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", template_filename)
     html_path = os.path.abspath(html_path)
+    
     
     if not os.path.exists(html_path):
         raise HTTPException(status_code=500, detail=f"템플릿 파일을 찾을 수 없습니다: {html_path}")
@@ -99,7 +114,7 @@ async def get_contract_details(
         "next_question": db_contract.next_question,
         "content": db_contract.content,
         "templateHtml": html_content,   # ✅ 프론트에서 미리보기용으로 사용할 HTML
-        "chatHistory": db_contract.chat_history if hasattr(db_contract, "chat_history") else [],
+        "chat_history": db_contract.chat_history if hasattr(db_contract, "chat_history") else [],
     }
 
 @router.post("/{contract_id}/chat", response_model=schemas.ChatResponse)

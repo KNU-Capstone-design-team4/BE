@@ -76,7 +76,7 @@ class ContractDetail(BaseModel):
     templateHtml: Optional[str] = None   # HTML 문서 전체를 문자열로 반환
 
     # ✅ [추가] 대화 히스토리 (선택적으로 포함 가능)
-    chatHistory: Optional[List[Dict[str, Any]]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
     
     class Config:
         from_attributes = True

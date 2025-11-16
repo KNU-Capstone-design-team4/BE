@@ -498,7 +498,7 @@ async def process_message(
             updated_field=[{
                 "field_id": updated_key,
                 "value": new_fields[updated_key]
-            }] if updated_key else [],
+            }] if updated_key else None,
             is_finished=True,
             full_contract_data=content,
             chat_history=new_chat_history # ⬅️ 추가

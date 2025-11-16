@@ -127,3 +127,23 @@ async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict
 
     updated = await db.get(models.Contract, contract_id)
     return updated
+
+async def update_contract_status(
+    db: AsyncSession, 
+    db_contract: models.Contract, 
+    status: str
+) -> models.Contract:
+    """
+    특정 계약서의 'status' 필드만 업데이트합니다.
+    """
+    # 1. SQLAlchemy 모델 객체의 상태를 직접 변경
+    db_contract.status = status
+    
+    # 2. 변경 사항을 DB에 커밋(저장)
+    await db.commit()
+    
+    # 3. DB로부터 최신 상태를 다시 읽어옴 (선택 사항이지만 권장됨)
+    await db.refresh(db_contract)
+    
+    # 4. 업데이트된 계약서 객체 반환
+    return db_contract
