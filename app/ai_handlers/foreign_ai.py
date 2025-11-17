@@ -799,52 +799,6 @@ async def process_message(
 # -----------------------------------------------------------
 TEMPLATE_FILE = "foreign.docx"
 
-'''async def render_docx(contract):
-    # 1) 경로 조합 및 정규화 (절대 경로)
-    current_dir = Path(__file__).resolve().parent
-    template_path = (current_dir / ".." / ".." / "templates" / TEMPLATE_FILE).resolve()
-
-    # 2) 디버그 출력
-    print("📂 Using template path:", str(template_path))
-    print("  - cwd:", os.getcwd())
-    try:
-        stat = template_path.stat()
-        print(f"  - exists: True, size: {stat.st_size} bytes, mode: {oct(stat.st_mode)}")
-    except FileNotFoundError:
-        print("  - exists: False")
-    except Exception as e:
-        print("  - stat error:", repr(e))
-
-    # 3) 직접 열어보기(바이너리로 읽기 시도)
-    try:
-        with open(template_path, "rb") as f:
-            head = f.read(4)
-        print("  - head bytes:", head)
-    except Exception as e:
-        print("  - open error:", repr(e))
-
-    # 4) 파일 존재 여부 체크 (명확한 에러)
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template not found at: {template_path}")
-
-    # 5) 파일 형식 간단 검사: .docx는 zip 파일의 PK\x03\x04 매직바이트로 시작
-    with open(template_path, "rb") as f:
-        magic = f.read(4)
-    if magic != b'PK\x03\x04':
-        raise ValueError(f"File at {template_path} does not look like a valid .docx (magic={magic!r}). "
-                         "Maybe it's corrupted or not a real .docx.")
-
-    # 6) 실제 DocxTemplate 로딩
-    try:
-        doc = DocxTemplate(str(template_path))
-    except Exception as e:
-        print("  - DocxTemplate load error:", repr(e))
-        raise
-
-    # 7) 렌더링
-    context = contract.content or {}
-    doc.render(context)
-    return doc'''
 async def render_docx(contract):
     """통합신청서 템플릿(.docx)을 렌더링해 DocxTemplate 객체로 반환."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -866,19 +820,3 @@ async def render_docx(contract):
     }
     doc.render(clean_context)
     return doc
-    
-    '''# docxtpl 객체 생성 및 템플릿 로드
-    try:
-        doc = DocxTemplate(template_path)
-    except FileNotFoundError:
-        # 파일이 없으면 에러를 발생시키거나 빈 문서를 반환하는 등 적절히 처리해야 합니다.
-        raise FileNotFoundError(f"템플릿 파일을 찾을 수 없습니다: {template_path}. 경로를 확인해주세요.")
-
-    # 2. DB의 JSON 데이터를 렌더링 Context로 사용
-    context = contract.content or {} 
-    
-    # 3. 템플릿에 데이터 채우기 (렌더링)
-    doc.render(context)
-    
-    # 완성된 docxtpl 객체를 반환합니다.
-    return doc '''
