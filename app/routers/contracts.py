@@ -200,7 +200,7 @@ async def download_contract(
     '''
     return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
 
-@router.patch("/contracts/{contract_id}/content")
+@router.patch("/{contract_id}/content")
 async def update_contract_content(
     contract_id: str,  # URL에서 문자열로 받음
     update_data: ContractUpdate,

@@ -40,7 +40,7 @@ CONTRACT_SCENARIO= [
     # 4. 임금 (급여)
     {"field_id": "salary_amount", "question": "월(일, 시간)급 총 임금액을 숫자로만 알려주세요. (예: 2500000)"},
     {"field_id": "bonus", "question": "별도로 정기적인 상여금이 지급되나요?"},
-    {"field_id": "bonus_amout", "question": "상여금은 얼마인가요?"},
+    {"field_id": "bonus_amount", "question": "상여금은 얼마인가요?"},
     
     {"field_id": "allowance", "question": "상여금 외 기타 급여(제수당 등)가 지급되나요? (예: 있음/없음)"},
     {"field_id": "other_allowance_1", "question": "기타 급여 첫 번째 항목과 금액을 알려주세요. (없으면 '없음' 입력)"},
