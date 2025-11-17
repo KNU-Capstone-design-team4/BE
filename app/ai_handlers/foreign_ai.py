@@ -119,7 +119,7 @@ TIP_LIST = [
 ]
 
 # 0.4로 설정하니깐 폼 답변인데 rag질문으로 인식되는 문제가 자주 발생해서 0.7로 높였음
-SIMILARITY_THRESHOLD = 0.7
+SIMILARITY_THRESHOLD = 0.6
 
 tip_embeddings: List[np.ndarray] = []
 tip_embeddings_lock = asyncio.Lock()
@@ -230,6 +230,11 @@ async def get_smart_extraction(
     8.  [학교종류]는 'ac', 'no_ac', 'alt' 변수에 "☒" 또는 "☐"로 채워야 합니다.
     9.  *중요*: 스킵하는 필드들에는 빈 문자열 ""을 채워서 docx 템플릿의 {{변수}} 태그가 남지 않게 해야 합니다.
     10. 반드시 지정된 JSON 형식으로만 반환해야 합니다.
+    11. 만약 사용자가 봇의 질문에 대답하지 않고, **법률적 질문, 절차 문의, 용어 정의** 등을 물어본다면:
+        - 'status'를 "rag_required"로 설정하세요.
+        - 'filled_fields'는 빈 딕셔너리로 두세요.
+        - 'follow_up_question'은 'null'로 두세요.
+        (예: "외국인 등록증이 꼭 필요한가요?", "수수료는 얼마인가요?", "이게 무슨 뜻인가요?")
 
     [JSON 반환 형식]
     {json_format_example}
@@ -669,9 +674,10 @@ async def process_message(
 
     # ✅ 1) 다음 질문 찾기
     current_item, current_index = find_next_question(content)
+    current_bot_question = current_item["question"] if current_item else None    
+    current_field_id = current_item["field_id"] if current_item else None # (나중에 사용)
     
-    current_bot_question = current_item["question"] if current_item else None
-        
+    
     # ✅ 2) 아무 입력 없으면 "시작/재개"
     if not message.strip():
         if current_item:
@@ -690,7 +696,113 @@ async def process_message(
                 full_contract_data=content,
                 chat_history=new_chat_history
             )
+        
+    # -----------------------------------------------------------
+    # ✅ [수정 1] 공통 채팅 기록 저장 (무조건 저장)
+    # -----------------------------------------------------------
+    # 사용자가 말을 했으므로, [봇의 질문] -> [사용자의 말]을 기록에 남깁니다.
+    if current_bot_question:
+        new_chat_history.append({"sender": "bot", "message": current_bot_question})
+    
+    new_chat_history.append({"sender": "user", "message": message})
+    # -----------------------------------------------------------
+    
+    # -----------------------------------------------------------
+    # ✅ [핵심 수정] 3) AI 추출 및 의도 파악 실행
+    # -----------------------------------------------------------
+    
+    # (A) 폼 작성이 완료된 경우 -> 무조건 RAG 모드로 진입
+    if current_item is None:
+        ai_result = {"status": "rag_required"} # 강제로 RAG 상태 설정
+        
+    # (B) 폼 작성 중인 경우 -> AI에게 추출 시도
+    else:
+        ai_result = await get_smart_extraction(
+            client,
+            current_field_id, # ❗️ 위에서 안전하게 가져온 변수 사용
+            message,
+            current_bot_question
+        )
+        
+        '''
+    # 3) AI 추출 및 의도 파악 실행
+    ai_result = await get_smart_extraction(
+        client,
+        current_item["field_id"],
+        message,
+        current_item["question"]
+    )
+'''
 
+    # -----------------------------------------------------------
+    # ✅ [수정 2] RAG(법률 질문) 처리
+    # -----------------------------------------------------------
+    if ai_result.get("status") == "rag_required":
+        tips, score = await find_top_relevant_tips(message)
+        rag_answer = await get_rag_response(message, tips)
+        
+        # RAG 답변을 기록에 추가
+        new_chat_history.append({"sender": "bot", "message": rag_answer})
+
+        # ❗️ [수정] 완료 여부에 따라 후속 멘트 다르게 처리
+        if current_item:
+            follow = f"\n\n(답변이 되셨나요? 이어서 진행합니다.)\n{current_item['question']}"
+            is_finished = False
+        else:
+            follow = "\n\n(추가로 궁금한 점이 있으신가요? 언제든 물어봐 주세요.)"
+            is_finished = True # 이미 완료된 상태
+            
+        '''
+        # RAG 답변 후, 원래 물어봤던 질문을 다시 이어서 붙임 (화면 표시용)
+        follow = (
+            f"\n\n(답변이 되셨나요? 이어서 진행합니다.)\n{current_item['question']}"
+            if current_item else ""
+        )
+        '''
+        
+        return schemas.ChatResponse(
+            reply=rag_answer + follow,
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=content,
+            chat_history=new_chat_history
+        )
+    
+    # -----------------------------------------------------------
+    # 4) 정상적인 폼 답변 처리 (status == "success" or "clarify")
+    # -----------------------------------------------------------
+    
+    
+    # AI가 추출한 데이터 적용
+    new_fields = ai_result.get("filled_fields", {})
+    content.update(new_fields)
+    
+    # (중요: skip_n 로직은 삭제됨 - filled_fields가 처리함)
+    skip_n = ai_result.get("skip_next_n_questions", 0)
+    for _ in range(skip_n):
+        # ❗️ content가 이미 update된 상태에서 find_next_question을 호출
+        _, idx = find_next_question(content) 
+        if idx < len(CONTRACT_SCENARIO):
+            # 다음 질문을 "__SKIPPED__"로 강제 마킹하여 채움
+            content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+    
+    # 재질문(clarify) 처리
+    if ai_result.get("status") == "clarify":
+        follow_up_q = ai_result["follow_up_question"]
+        
+        # 재질문 내용도 기록에 추가
+        new_chat_history.append({"sender": "bot", "message": follow_up_q})
+        
+        return schemas.ChatResponse(
+            reply=follow_up_q,
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=content,
+            chat_history=new_chat_history
+        )
+    
+    '''
+    
     # ✅ 3) RAG 여부 판단
     tips, score = await find_top_relevant_tips(message)
     is_legal_question = score >= SIMILARITY_THRESHOLD
@@ -759,7 +871,9 @@ async def process_message(
             chat_history=new_chat_history
         )
 
-       # ✅ 다음 질문 찾기
+        '''
+    
+    # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
     # new_fields 에 값이 있을 때, UpdatedField 리스트로 변환
