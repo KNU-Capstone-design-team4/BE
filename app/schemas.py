@@ -51,6 +51,14 @@ class TokenResponse(BaseModel):
 class ContractCreate(BaseModel):
     contract_type: str
 
+class ContractUpdate(BaseModel):
+    """
+    프론트엔드에서 수동으로 수정한 필드값들을 받습니다.
+    예: {"content": {"employer_name": "수정된 이름", "salary_amount": "3000000"}}
+    """
+    content: Dict[str, Any]
+
+
 # 내 계약서 목록 조회 시 보낼 각 계약서의 기본 정보 (Response)
 class ContractInfo(BaseModel):
     id: UUID
