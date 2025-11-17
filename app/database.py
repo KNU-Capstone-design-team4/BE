@@ -4,6 +4,7 @@ from supabase import create_client, Client
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from uuid import uuid4
+from sqlalchemy.pool import NullPool # NullPool import 필요
 
 # .env 파일에서 환경 변수를 로드합니다.
 load_dotenv()
@@ -63,6 +64,7 @@ engine = create_async_engine(
         "prepared_statement_name_func": get_unique_statement_name, # 고유 이름 부여 (Supabase에서 필수)
     },
     pool_pre_ping=True
+    #poolclass=NullPool
 )
 
 '''

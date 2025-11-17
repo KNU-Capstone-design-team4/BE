@@ -9,6 +9,7 @@ from ..database import get_db
 from ..dependencies import verify_supabase_token 
 from uuid import UUID
 from urllib.parse import quote
+from app.schemas import ContractUpdate
 
 TEMPLATE_MAPPING = {
     "근로계약서": "working.html",
@@ -198,4 +199,38 @@ async def download_contract(
     headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
     '''
     return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
+
+@router.patch("/contracts/{contract_id}/content")
+async def update_contract_content(
+    contract_id: str,  # URL에서 문자열로 받음
+    update_data: ContractUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(verify_supabase_token) # 인증 필요
+):
+    # 1. 문자열 ID를 UUID 객체로 변환 (crud 함수 타입 힌트에 맞춤)
+    try:
+        contract_uuid = UUID(contract_id)
+        user_uuid = UUID(current_user['id'])
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    # 2. 계약서 조회 (crud.py의 함수 이름 사용!)
+    contract = await crud.get_contract_by_id(db, contract_id=contract_uuid, user_id=user_uuid)
+    
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # 3. 기존 내용에 새로운 내용 병합 (Merge)
+    current_content = dict(contract.content) if contract.content else {}
+    current_content.update(update_data.content)
+    
+    # 4. DB 저장 (crud.py에 있는 업데이트 함수 재사용 가능)
+    #    update_contract_content_multiple 함수가 이미 구현되어 있으니 이걸 쓰면 깔끔합니다!
+    updated_contract = await crud.update_contract_content_multiple(
+        db=db, 
+        contract=contract, 
+        fields_to_update=update_data.content
+    )
+    
+    return {"status": "success", "content": updated_contract.content}
 

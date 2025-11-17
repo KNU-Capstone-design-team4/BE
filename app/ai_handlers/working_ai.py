@@ -206,6 +206,13 @@ async def get_smart_extraction(
     5.  반드시 지정된 JSON 형식으로만 반환해야 합니다.
     6. 답변이 원하는 대답이 아니면 다시 질문하고 원하는 답이 나오면 그 답을 변수에 채워넣습니다.
     7. `bonus_amount` 등 금액을 나타내는 필드에는 단위(예: 원, 만원)을 지우고 숫자 및 쉼표만 입력합니다. (예: "500,000")
+    8. 성명(이름)을 묻는 질문에는 사용자가 '홍길', '이 산' 처럼 2글자나 외자 이름을 입력하더라도, 오타가 명확하지 않다면 그대로 추출하세요. 되묻지 마십시오.
+    9. [중요 - 질문 제한] 만약 사용자가 현재 질문에 대답하지 않고 '다른 질문'을 하거나 '문맥에 맞지 않는 말'을 한다면:
+        - status: "general_question" 으로 설정하세요.
+        - follow_up_question 필드에는 반드시 아래 문구만 작성하십시오:
+          "죄송합니다. 해당 내용은 제공된 도움말(Tip)에 포함되지 않아 답변드릴 수 없습니다."
+        - 절대로 당신의 지식을 사용하여 임의로 답변을 생성하지 마십시오.
+        - filled_fields는 비워두세요.
 
     [JSON 반환 형식]
     {json_format_example}
@@ -275,6 +282,17 @@ async def get_smart_extraction(
             "bonus_amount": "", 
             "bonus_yes": false, /* HTML '있음' 체크 해제 */
             "bonus_none": true, /* HTML '없음' 체크 */
+            "is_bonus_paid_yes_o": " ",
+            "is_bonus_paid_no_o": "O"
+        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+
+        [예시 3: '없음' 선택 (단답형/반말 - '아니.', '없어')]
+        question: "{question}"
+        user_message: "아니."
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "", 
+            "bonus_yes": false,
+            "bonus_none": true,
             "is_bonus_paid_yes_o": " ",
             "is_bonus_paid_no_o": "O"
         }}, "skip_next_n_questions": 1, "follow_up_question": null}}
@@ -365,7 +383,7 @@ async def get_smart_extraction(
         [예시 2: '있음' (금액만 입력) -> 되묻기 (항목) **⭐️ 금액 저장**]
         question: "{question}"
         user_message: "100000"
-        AI: {{"status": "clarify", "filled_fields": {{**"{field_id}_amount_temp": "100,000원"**}}, "skip_next_n_questions": 0, "follow_up_question": "금액 100,000원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+        AI: {{"status": "clarify", "filled_fields": {{"{field_id}_amount_temp": "100,000원"}}, "skip_next_n_questions": 0, "follow_up_question": "금액 100,000원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
 
         [예시 3: '있음' (항목만 입력) -> 되묻기 (금액) **⭐️ 항목 저장**]
         question: "{question}"
@@ -375,7 +393,7 @@ async def get_smart_extraction(
         [예시 4: '있음' (모호한 단위) -> 되묻기 (항목) **⭐️ 금액 저장**]
         question: "{question}"
         user_message: "15만원입니다"
-        AI: {{"status": "clarify", "filled_fields": {{**"{field_id}_amount_temp": "150,000원"**}}, "skip_next_n_questions": 0, "follow_up_question": "금액 15만원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
+        AI: {{"status": "clarify", "filled_fields": {{"{field_id}_amount_temp": "150,000원"}}, "skip_next_n_questions": 0, "follow_up_question": "금액 15만원의 항목(종류)은 무엇인가요? (예: 식대, 교통비)"}}
 
         [예시 5: '없음' 선택 (현재 + 나머지 공백 저장 및 스킵)]
         question: "{question}"
@@ -619,7 +637,25 @@ async def process_message(
         message,
         current_item["question"]
     )
-
+    # ⭐️⭐️⭐️ [수정 포인트 2] 일반 질문(general_question) 처리 로직 추가 ⭐️⭐️⭐️
+    if ai.get("status") == "general_question":
+        ai_reply = ai.get("follow_up_question", "죄송합니다. 질문을 잘 이해하지 못했습니다.")
+        
+        # 1. 챗 히스토리에 봇의 답변 추가 (RAG 때처럼)
+        new_chat_history.append({"sender": "bot", "message": ai_reply})
+        
+        # 2. 사용자에게 답변 반환 (다음 질문을 이어서 붙여주면 더 자연스러움)
+        #    답변 후 원래 물어봤던 질문(current_bot_question)을 다시 상기시킴
+        full_reply = f"{ai_reply}\n\n다시 진행할게요. {current_item['question']}"
+        
+        return schemas.ChatResponse(
+            reply=full_reply,
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=content,
+            chat_history=new_chat_history
+        )
+    
     # ✅ AI가 반환한 filled_fields 적용
     new_fields = ai.get("filled_fields", {})
 
