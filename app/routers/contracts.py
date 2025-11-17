@@ -17,6 +17,12 @@ TEMPLATE_MAPPING = {
     # "다른계약서": "other_template.html",
 }
 
+WELCOME_MESSAGES = {
+    "근로계약서": "안녕하세요! 💼 근로계약서 작성 도우미 LAW BOT입니다.",
+    "통합신청서": "안녕하세요! 🌏 통합신청서 작성을 도와드릴 LAW BOT입니다.",
+    # 여기에 다른 계약서 종류도 추가하면 됩니다.
+}
+
 router = APIRouter(
     prefix="/api/contracts",
     tags=["contracts"],
@@ -71,19 +77,55 @@ async def get_contract_details(
     # -----------------------------------------------------------
     # ❗️ [핵심 로직 추가] ❗️
     # -----------------------------------------------------------
-    # 1. services.py에 다음 질문을 찾는 헬퍼 함수 호출
+    '''원래코드
     next_question_text = services.find_next_question(db_contract)
+    '''
+    #next_question_text = services.find_next_question(db_contract)
+    # 원래 코드#####
+
+    #추가한 코드
+    next_question_item, _ = services.find_next_question(db_contract.content or {})
+
+    # -----------------------------------------------------------
+    # ❗️ [핵심 로직 추가] - 초기 환영 메시지 자동 생성
+    # -----------------------------------------------------------
+    # 3. 채팅 내역이 비어있다면 (처음 접속)
+    if not db_contract.chat_history:
+        
+        # (A) 계약서 타입에 맞는 환영 인사 가져오기 (상단 WELCOME_MESSAGES 활용)
+        welcome_msg = WELCOME_MESSAGES.get(
+            db_contract.contract_type, 
+            "안녕하세요! 계약서 작성을 도와드릴 LAW BOT입니다."
+        )
+        
+        # (B) 첫 번째 질문 가져오기
+        first_q_msg = next_question_item["question"] if next_question_item else "모든 작성이 완료되었습니다."
+        
+        # (C) 초기 메시지 리스트 생성
+        initial_history = [
+            {"sender": "bot", "message": welcome_msg},
+            {"sender": "bot", "message": first_q_msg}
+        ]
+        
+        # (D) DB에 저장
+        db_contract.chat_history = initial_history
+        await db.commit()
+        await db.refresh(db_contract) # 최신 상태 갱신
+
+    # -----------------------------------------------------------
+
+    ##이 밑에부터 원래코드
 
     # 2. 계약서 상태 업데이트 (필요시)
     current_status = db_contract.status
-    if next_question_text is None and db_contract.status == "in_progress":
+    if next_question_item is None and db_contract.status == "in_progress":
         # 다음 질문이 없는데 상태가 '진행중'이면 '완료'로 변경
         db_contract = await crud.update_contract_status(db, db_contract, "completed")
         current_status = "completed"
 
     # 3. Pydantic 스키마가 from_attributes=True 이므로,
     #    조회한 객체에 동적으로 속성을 추가하여 반환할 수 있습니다.
-    db_contract.next_question = next_question_text
+    db_contract.next_question = next_question_item["question"] if next_question_item else None
     db_contract.status = current_status # DB에서 읽어온 status (또는 방금 변경한 status)
     
     contract_type = db_contract.contract_type
