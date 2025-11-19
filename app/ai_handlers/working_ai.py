@@ -565,8 +565,10 @@ async def process_message(
     # ✅ 2) 아무 입력 없으면 "시작/재개"
     if not message.strip() or message.strip() == "string":
         
-        # [케이스 A] 대화 기록이 없는 완전 처음 시작 -> 질문만 던짐 (스킵 X)
-        if not new_chat_history:
+        user_has_spoken = any(msg.get("sender") == "user" for msg in new_chat_history)
+
+        # [케이스 A] 사용자가 아직 말을 안 함 (완전 처음) -> 질문만 던짐 (스킵 X)
+        if not user_has_spoken:
             if current_item:
                 return schemas.ChatResponse(
                     reply=current_item["question"],
@@ -576,7 +578,7 @@ async def process_message(
                     chat_history=new_chat_history
                 )
         
-        # [케이스 B] 대화 도중 엔터 입력 -> 현재 질문 스킵 (빈 값 저장)
+        # [케이스 B] 이미 대화 중임 + 엔터 입력 -> 현재 질문 스킵 (빈 값 저장)
         if current_item:
             # 1. 현재 질문을 빈 값("")으로 저장
             field_id = current_item["field_id"]
@@ -588,6 +590,10 @@ async def process_message(
             # 3. 스킵 안내 메시지 생성
             reply_text = f"(건너뜁니다)\n{next_item['question']}" if next_item else "모든 항목이 작성되었습니다."
             is_finished = (next_item is None)
+            
+            # 스킵했다는 기록도 채팅에 남기는 것이 좋습니다 (선택 사항)
+            # new_chat_history.append({"sender": "user", "message": "(건너뛰기)"})
+            # new_chat_history.append({"sender": "bot", "message": reply_text})
 
             return schemas.ChatResponse(
                 reply=reply_text,

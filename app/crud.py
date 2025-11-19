@@ -125,8 +125,16 @@ async def update_contract(db: AsyncSession, contract_id: UUID, new_content: Dict
     await db.execute(stmt)
     await db.commit()
 
-    updated = await db.get(models.Contract, contract_id)
-    return updated
+    '''updated = await db.get(models.Contract, contract_id)
+    return updated'''
+    query = select(models.Contract).where(models.Contract.id == contract_id)
+    result = await db.execute(query)
+    updated_contract = result.scalar_one()
+    
+    # 3. 데이터 새로고침 (이 과정이 없으면 직렬화 시 에러가 날 수 있음)
+    await db.refresh(updated_contract)
+
+    return updated_contract
 
 async def update_contract_status(
     db: AsyncSession, 

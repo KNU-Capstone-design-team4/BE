@@ -678,7 +678,7 @@ async def process_message(
     current_field_id = current_item["field_id"] if current_item else None # (나중에 사용)
     
     
-    # ✅ 2) 아무 입력 없으면 "시작/재개"
+    '''# ✅ 2) 아무 입력 없으면 "시작/재개"
     if not message.strip():
         if current_item:
             return schemas.ChatResponse(
@@ -695,8 +695,56 @@ async def process_message(
                 is_finished=True,
                 full_contract_data=content,
                 chat_history=new_chat_history
-            )
+            )'''
+    if not message.strip() or message.strip() == "string":
         
+        user_has_spoken = any(msg.get("sender") == "user" for msg in new_chat_history)
+
+        # [케이스 A] 사용자가 아직 말을 안 함 (완전 처음) -> 질문만 던짐 (스킵 X)
+        if not user_has_spoken:
+            if current_item:
+                return schemas.ChatResponse(
+                    reply=current_item["question"],
+                    updated_field=None,
+                    is_finished=False,
+                    full_contract_data=content,
+                    chat_history=new_chat_history
+                )
+        
+        # [케이스 B] 이미 대화 중임 + 엔터 입력 -> 현재 질문 스킵 (빈 값 저장)
+        if current_item:
+            # 1. 현재 질문을 빈 값("")으로 저장
+            field_id = current_item["field_id"]
+            content[field_id] = "" 
+            
+            # 2. 다음 질문 찾기
+            next_item, _ = find_next_question(content)
+            
+            # 3. 스킵 안내 메시지 생성
+            reply_text = f"(건너뜁니다)\n{next_item['question']}" if next_item else "모든 항목이 작성되었습니다."
+            is_finished = (next_item is None)
+            
+            # 스킵했다는 기록도 채팅에 남기는 것이 좋습니다 (선택 사항)
+            # new_chat_history.append({"sender": "user", "message": "(건너뛰기)"})
+            # new_chat_history.append({"sender": "bot", "message": reply_text})
+
+            return schemas.ChatResponse(
+                reply=reply_text,
+                updated_field=[{"field_id": field_id, "value": ""}],
+                is_finished=is_finished,
+                full_contract_data=content,
+                chat_history=new_chat_history
+            )
+        else:
+            # 이미 완료된 상태
+            return schemas.ChatResponse(
+                reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
+                updated_field=None,
+                is_finished=True,
+                full_contract_data=content,
+                chat_history=new_chat_history
+            )
+
     # -----------------------------------------------------------
     # ✅ [수정 1] 공통 채팅 기록 저장 (무조건 저장)
     # -----------------------------------------------------------
