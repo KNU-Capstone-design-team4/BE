@@ -13,13 +13,15 @@ from app.schemas import ContractUpdate
 
 TEMPLATE_MAPPING = {
     "근로계약서": "working.html",
-    "통합신청서": "foreign.html"
+    "통합신청서": "foreign.html",
+    "임대차계약서": "house.html"
     # "다른계약서": "other_template.html",
 }
 
 WELCOME_MESSAGES = {
     "근로계약서": "안녕하세요!  근로계약서 작성 도우미 LAW BOT입니다.",
     "통합신청서": "안녕하세요!  통합신청서 작성을 도와드릴 LAW BOT입니다.",
+    "임대차계약서": "안녕하세요! 임대차계약서 작성을 도와드릴 LAW BOT입니다."
     # 여기에 다른 계약서 종류도 추가하면 됩니다.
 }
 

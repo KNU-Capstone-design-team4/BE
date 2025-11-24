@@ -63,7 +63,12 @@ engine = create_async_engine(
         "statement_cache_size": 0, # 캐시 비활성화
         "prepared_statement_name_func": get_unique_statement_name, # 고유 이름 부여 (Supabase에서 필수)
     },
-    pool_pre_ping=True
+    echo = True,
+    pool_timeout = 30,
+    pool_size=2,
+    max_overflow=0,
+    pool_pre_ping=True,
+    pool_recycle=300
     #poolclass=NullPool
 )
 
