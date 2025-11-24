@@ -86,6 +86,22 @@ TIP_LIST = [
     "21. (최저시급)2025년을 기준으로 최저시급은 10030원입니다. 이를 지키지 않을 경우, 5년 이하의 징역에 처할 수 있습니다."
 ]
 
+def calculate_work_hours(start_str: str, end_str: str) -> float:
+    """HH:MM 형식의 문자열 두 개를 받아 근무 시간을 계산합니다."""
+    try:
+        fmt = "%H:%M"
+        t_start = datetime.datetime.strptime(start_str, fmt)
+        t_end = datetime.datetime.strptime(end_str, fmt)
+        
+        # 종료 시간이 시작 시간보다 빠르면 다음날로 간주 (예: 22:00 ~ 02:00)
+        if t_end < t_start:
+            t_end += datetime.timedelta(days=1)
+            
+        diff = t_end - t_start
+        return diff.total_seconds() / 3600 # 시간 단위 반환
+    except:
+        return 0.0
+
 # ⭐️ 1. 개선된 Few-Shot 프롬프트 템플릿 정의
 SMART_EXTRACTION_PROMPT_TEMPLATE = """
 # ROLE (역할)
@@ -216,6 +232,7 @@ async def get_smart_extraction(
     10.만약 사용자가 정보를 입력하는 대신 **"최저시급이 얼마야?", "주휴수당 조건이 뭐야?", "4대보험 꼭 해야해?"** 처럼
        법률적인 정보나 일반적인 지식을 묻는 질문(Question)을 한다면, 
        즉시 `status: "rag_required"`를 반환하십시오. 이때 `filled_fields`는 비워둡니다.
+    11.시간 형식에 13이상의 숫자가 들어오면 24시간제로 인식하고 유지하세요.
 
     [JSON 반환 형식]
     {json_format_example}
@@ -264,6 +281,36 @@ async def get_smart_extraction(
         user_message: "1시간 30분입니다"
         AI: {{"status": "success", "filled_fields": {{"rest_time": "90"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
+
+    elif field_id in ["start_time", "end_time"]:
+        specific_examples = f"""
+        [규칙]
+        1. 입력된 시간을 무조건 'HH:MM' (24시간제) 형식으로 변환하여 저장하세요.
+        2. '오후', '저녁', '밤' 키워드가 있거나 13 이상의 숫자는 24시간제로 변환하세요.
+        3. ⭐️ 중요: 근무 시작 시간이 오후(13시~)나 밤이어도 절대 이상하다고 생각하거나 되묻지 마세요. (야간/교대 근무 가능)
+        4. 사용자가 입력한 그대로를 믿고 변환만 수행하세요.
+        
+        [예시 1: '18시' -> 그대로 18:00 저장 (되묻기 금지)]
+        question: "{question}"
+        user_message: "18시"
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "18:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: '오후 6시' -> 18:00 저장]
+        question: "{question}"
+        user_message: "오후 6시요."
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "18:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: '밤 10시' -> 22:00 저장]
+        question: "{question}"
+        user_message: "밤 10시에 시작해요"
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "22:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 4: '09:00' -> 그대로 저장]
+        question: "{question}"
+        user_message: "09:00"
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "09:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
     # [상여금] 예시
     elif field_id == "bonus":
         specific_examples = f"""
@@ -282,6 +329,7 @@ async def get_smart_extraction(
         question: "{question}"
         user_message: "아니요 없습니다"
         AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "",
             "bonus_yes": false, /* HTML '있음' 체크 해제 */
             "bonus_none": true, /* HTML '없음' 체크 */
             "is_bonus_paid_yes_o": " ",
@@ -292,6 +340,7 @@ async def get_smart_extraction(
         question: "{question}"
         user_message: "아니."
         AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "",
             "bonus_yes": false,
             "bonus_none": true,
             "is_bonus_paid_yes_o": " ",
@@ -590,7 +639,7 @@ async def process_message(
             # 1. 현재 질문을 빈 값("")으로 저장
             field_id = current_item["field_id"]
             content[field_id] = "" 
-            
+
             # 2. 다음 질문 찾기
             next_item, _ = find_next_question(content)
             
@@ -735,17 +784,61 @@ async def process_message(
                 chat_history=new_chat_history
             )
         
+    if "employee_name" in new_fields:
+                content["employee_name_sign"] = new_fields["employee_name"]
+    # =========================================================
+    # -----------------------------------------------------------------
+    # if current_field_id == "rest_time":
+    #     rest_val = content.get("rest_time", "")
+    #     # 값이 없거나 부정적인 표현이면 체크
+    #     if str(rest_val).strip() in ["", "0", "없음", "없어요", "안해요"]:
+    #         start_t = content.get("start_time")
+    #         end_t = content.get("end_time")
+            
+    #         if start_t and end_t:
+    #             total_hours = calculate_work_hours(start_t, end_t)
+                
+    #             # 4시간 이상 근무인데 휴게시간이 없으면 경고
+    #             if total_hours >= 4:
+    #                 # 🚀 [수정됨] 느린 AI 검색(RAG) 제거 -> 고정 멘트로 즉시 출력
+    #                 warning_msg = (
+    #                     f"하루 근로시간이 {total_hours}시간인 경우, 근로기준법상 휴게시간을 필수로 부여해야 합니다.\n"
+    #                     f"(4시간 근무 시 30분 이상, 8시간 근무 시 1시간 이상)"
+    #                 )
+    #                 new_chat_history.append({"sender": "bot", "message": warning_msg})
 
-    # ✅ 다음 질문 찾기
+    # # (2) 최저시급 체크
+    # if current_field_id == "salary_amount":
+    #     try:
+    #         raw_salary = content.get("salary_amount", "0")
+    #         # 쉼표, 원 제거
+    #         salary_str = str(raw_salary).replace(",", "").replace("원", "")
+            
+    #         if salary_str.isdigit():
+    #             hourly_wage = int(salary_str)
+    #             MINIMUM_WAGE_2025 = 10030
+                
+    #             # 입력값이 0보다 크고 최저시급보다 작으면 경고
+    #             if 0 < hourly_wage < MINIMUM_WAGE_2025:
+    #                 # 🚀 [수정됨] 느린 AI 검색(RAG) 제거 -> 고정 멘트로 즉시 출력
+    #                 msg = (
+    #                     f"입력하신 시급({hourly_wage:,}원)은 2025년 최저시급({MINIMUM_WAGE_2025:,}원)보다 낮습니다.\n"
+    #                     f"최저임금법 위반 시 3년 이하의 징역 또는 2천만원 이하의 벌금이 부과될 수 있습니다."
+    #                 )
+    #                 new_chat_history.append({"sender": "bot", "message": msg})
+    #     except:
+    #         pass
+     # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
     # -----------------------------------------------------------------
     # ✅ [4. CHAT HISTORY 추가]
     # updated_key는 폼 답변 성공 시에만 정의되므로, 
     # 'if next_item:' 블록 밖으로 이동시키거나 안전하게 처리합니다.
-    updated_key = list(new_fields.keys())[0] if new_fields else None
-    # -----------------------------------------------------------------
-    
+    #updated_key = list(new_fields.keys())[0] if new_fields else None
+    updated_key = current_field_id
+        
+
     if next_item:
         return schemas.ChatResponse(
             reply=next_item["question"],
