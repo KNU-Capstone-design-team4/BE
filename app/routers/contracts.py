@@ -14,6 +14,7 @@ from app.schemas import ContractUpdate
 TEMPLATE_MAPPING = {
     "근로계약서": "working.html",
     "통합신청서": "foreign.html",
+    "위임장":"attorney.html",
     "임대차계약서": "house.html"
     # "다른계약서": "other_template.html",
 }
@@ -21,6 +22,7 @@ TEMPLATE_MAPPING = {
 WELCOME_MESSAGES = {
     "근로계약서": "안녕하세요!  근로계약서 작성 도우미 LAW BOT입니다.",
     "통합신청서": "안녕하세요!  통합신청서 작성을 도와드릴 LAW BOT입니다.",
+    "위임장":"안녕하세요!  위임장 작성을 도와드릴 LAW BOT입니다."
     "임대차계약서": "안녕하세요! 임대차계약서 작성을 도와드릴 LAW BOT입니다."
     # 여기에 다른 계약서 종류도 추가하면 됩니다.
 }
@@ -71,16 +73,20 @@ async def create_new_contract(
     # 3. 계약서 타입에 맞는 인사말 가져오기
     welcome_msg = WELCOME_MESSAGES.get(contract_data.contract_type, "안녕하세요! LAW BOT입니다.")
     
-    # 4. 봇의 메시지 구성 (인사말 + 줄바꿈 + 첫 질문)
-    full_bot_message = f"{welcome_msg}\n\n{first_question}" if first_question else welcome_msg
-    
     # 5. 초기 채팅 내역 리스트 생성
     initial_chat_history = [
         {
-            "role": "assistant", 
+            "sender": "bot", 
             "message": welcome_msg 
         }
     ]
+
+    if first_question:
+        initial_chat_history.append({
+            "sender": "bot",
+            "message": first_question
+        })
+
     # 6. DB 업데이트 (crud.update_contract 활용)
     # crud.update_contract는 content와 chat_history를 모두 받으므로,
     # 기존 content(빈 딕셔너리)는 그대로 유지하고 chat_history만 채워서 보냅니다.

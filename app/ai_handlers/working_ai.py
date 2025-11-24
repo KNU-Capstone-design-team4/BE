@@ -16,8 +16,8 @@ client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 # --- 1. 근로계약서 전용 시나리오 ---
 CONTRACT_SCENARIO= [
     # 1. 당사자 정보
-    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 '사업주'의 성함은 무엇인가요? "},
-    {"field_id": "employee_name", "question": "이제 '근로자'의 성함은 무엇인가요? "},
+    {"field_id": "employer_name", "question": "먼저, 계약을 체결하는 '사업주'의 성함은 무엇인가요?"},
+    {"field_id": "employee_name", "question": "이제 '근로자'의 성함은 무엇인가요?"},
     {"field_id": "business_name", "question": "고용주가 운영하는 사업체명(회사 이름)을 알려주세요.(예: (주)한빛유통)"},
     {"field_id": "business_phone", "question": "사업체의 대표 연락처(전화번호)를 입력해주세요."},
     {"field_id": "business_address", "question": "사업장의 소재지(주소)는 어디인가요?"},
@@ -63,27 +63,27 @@ CONTRACT_SCENARIO= [
 ]
 
 TIP_LIST = [
-    "1.**(초과근무 합의)** 법정근로시간(주 40시간)을 초과하여 근무하려면, 반드시 근로자와의 서면 합의가 필요합니다. 구두 합의는 추후 분쟁의 소지가 될 수 있습니다.",
-    "2.** (청소년 근로)** 만 18세 미만 청소년의 법정근로시간은 하루 7시간, 주 35시간을 초과할 수 없으며, 본인이 동의해도 연장근로는 주 5시간까지만 가능합니다.",
-    "3.** (휴일근로수당)** 휴일에 근무했다면 반드시 가산수당을 받아야 합니다. 8시간 이내 근무는 통상임금의 1.5배, 8시간을 초과한 근무는 2배를 지급받아야 합니다.",
-    "4.** (야간근로수당)** 오후 10시부터 다음 날 오전 6시 사이에 근무했다면, 통상임금의 50%를 야간근로수당으로 추가 지급받아야 합니다.",
-    "5.** (수당 중복지급)** 만약 휴일에 야간 근무를 했다면, 휴일근로수당(1.5배)과 야간근로수당(0.5배)이 중복으로 적용되어 통상임금의 2배를 받을 수 있습니다.",
-    "6.** (주휴수당 조건)** 주휴수당은 '1주 소정근로시간 15시간 이상'과 '1주 개근'이라는 두 가지 조건을 모두 충족해야 발생합니다.",
+    "1. (초과근무 합의) 법정근로시간(주 40시간)을 초과하여 근무하려면, 반드시 근로자와의 서면 합의가 필요합니다. 구두 합의는 추후 분쟁의 소지가 될 수 있습니다.",
+    "2. (청소년 근로) 만 18세 미만 청소년의 법정근로시간은 하루 7시간, 주 35시간을 초과할 수 없으며, 본인이 동의해도 연장근로는 주 5시간까지만 가능합니다.",
+    "3. (휴일근로수당) 휴일에 근무했다면 반드시 가산수당을 받아야 합니다. 8시간 이내 근무는 통상임금의 1.5배, 8시간을 초과한 근무는 2배를 지급받아야 합니다.",
+    "4. (야간근로수당) 오후 10시부터 다음 날 오전 6시 사이에 근무했다면, 통상임금의 50%를 야간근로수당으로 추가 지급받아야 합니다.",
+    "5. (수당 중복지급) 만약 휴일에 야간 근무를 했다면, 휴일근로수당(1.5배)과 야간근로수당(0.5배)이 중복으로 적용되어 통상임금의 2배를 받을 수 있습니다.",
+    "6. (주휴수당 조건) 주휴수당은 '1주 소정근로시간 15시간 이상'과 '1주 개근'이라는 두 가지 조건을 모두 충족해야 발생합니다.",
     "7. (단기 근로자 주휴수당) 계약 기간이 1주일이라도, 주 15시간 이상 일하고 개근했다면 계약 종료와 별개로 주휴수당을 지급받을 수 있습니다. 다음 주 근무 여부는 상관없습니다.",
-    "8.** (계약서 작성 시점)** 모든 근로계약서는 반드시 업무를 시작하기 전에 작성해야 하며, 작성 후 1부를 근로자에게 즉시 교부하는 것이 법적 의무입니다.",
-    "9.** (계약서 미작성 벌금)** 근로계약서를 서면으로 작성하고 교부하지 않은 경우, 사업주는 500만원 이하의 벌금에 처해질 수 있습니다.",
-    "10.** (근로조건 변경)** 임금, 근로시간 등 중요한 근로조건이 변경될 경우, 구두 합의만으로는 부족하며 반드시 변경된 내용을 서면으로 명시하여 다시 교부해야 합니다.",
-    "11.** (단시간 근로자 계약서)** 아르바이트처럼 근무 요일이나 시간이 유동적인 경우, \"월, 수, 금, 14:00~18:00\"와 같이 근로일과 근로일별 근로시간을 반드시 구체적으로 명시해야 합니다.",
-    "12.** (휴게시간 명시)** 휴게시간은 임금에 포함되지 않는 무급 시간이 원칙입니다. 따라서 계약서에 휴게시간을 명확히 기재해야 총 근로시간 및 임금 계산에 대한 오해를 막을 수 있습니다.",
-    "13.** (휴게시간 법적 기준)** 근로시간이 4시간이면 30분 이상, 8시간이면 1시간 이상의 휴게시간을 '근로시간 도중에' 부여해야 합니다. 업무 시작 전이나 종료 후에 부여하는 것은 위법입니다.",
-    "14.** (퇴직금 연봉 포함 금지)** 월급이나 연봉에 퇴직금을 포함하여 지급하는 계약은 근로기준법상 불법이며 무효입니다. 퇴직금은 반드시 퇴직 시점에 별도로 정산받아야 합니다.",
-    "15.** (포괄임금제 유의사항)** 연장·야간수당 등을 미리 월급에 포함하는 포괄임금제 계약은 가능하지만, 실제 발생한 수당이 약정된 수당보다 많을 경우 차액을 추가로 지급해야 합니다.",
-    "16.** (공휴일 유급휴일)** 2022년부터 사업장 규모와 상관없이 모든 근로자는 '빨간 날'(관공서 공휴일)을 유급휴일로 보장받아야 합니다.",
-    "17.** (대체휴일 적용)** 공휴일이 주말과 겹치는 경우 발생하는 대체공휴일 역시 모든 사업장에서 유급휴일로 보장해야 합니다.",
-    "18.** (휴일 조항 명시)** 근로계약서에는 '주휴일'이 무슨 요일인지, '공휴일'을 유급으로 보장하는지 등 휴일에 관한 사항을 반드시 포함해야 합니다.",
-    "19.** (5인 미만 사업장 예외)** 연장·야간·휴일근로 가산수당, 연차유급휴가 등의 일부 규정은 상시 근로자 5인 미만 사업장에는 적용되지 않을 수 있으니 확인이 필요합니다.",
-    "20.** (벌금과 별개로 임금 지급 의무)** 사업주가 근로기준법 위반으로 벌금을 내더라도, 근로자에게 지급해야 할 주휴수당, 가산수당 등의 임금 지급 의무는 사라지지 않습니다.",
-    "21.**(최저시급)2025년을 기준으로 최저시급은 10030원입니다. 이를 지키지 않을 경우, 5년 이하의 징역에 처할 수 있습니다."
+    "8. (계약서 작성 시점) 모든 근로계약서는 반드시 업무를 시작하기 전에 작성해야 하며, 작성 후 1부를 근로자에게 즉시 교부하는 것이 법적 의무입니다.",
+    "9. (계약서 미작성 벌금) 근로계약서를 서면으로 작성하고 교부하지 않은 경우, 사업주는 500만원 이하의 벌금에 처해질 수 있습니다.",
+    "10. (근로조건 변경) 임금, 근로시간 등 중요한 근로조건이 변경될 경우, 구두 합의만으로는 부족하며 반드시 변경된 내용을 서면으로 명시하여 다시 교부해야 합니다.",
+    "11. (단시간 근로자 계약서) 아르바이트처럼 근무 요일이나 시간이 유동적인 경우, \"월, 수, 금, 14:00~18:00\"와 같이 근로일과 근로일별 근로시간을 반드시 구체적으로 명시해야 합니다.",
+    "12. (휴게시간 명시) 휴게시간은 임금에 포함되지 않는 무급 시간이 원칙입니다. 따라서 계약서에 휴게시간을 명확히 기재해야 총 근로시간 및 임금 계산에 대한 오해를 막을 수 있습니다.",
+    "13. (휴게시간 법적 기준) 근로시간이 4시간이면 30분 이상, 8시간이면 1시간 이상의 휴게시간을 '근로시간 도중에' 부여해야 합니다. 업무 시작 전이나 종료 후에 부여하는 것은 위법입니다.",
+    "14. (퇴직금 연봉 포함 금지) 월급이나 연봉에 퇴직금을 포함하여 지급하는 계약은 근로기준법상 불법이며 무효입니다. 퇴직금은 반드시 퇴직 시점에 별도로 정산받아야 합니다.",
+    "15. (포괄임금제 유의사항) 연장·야간수당 등을 미리 월급에 포함하는 포괄임금제 계약은 가능하지만, 실제 발생한 수당이 약정된 수당보다 많을 경우 차액을 추가로 지급해야 합니다.",
+    "16. (공휴일 유급휴일) 2022년부터 사업장 규모와 상관없이 모든 근로자는 '빨간 날'(관공서 공휴일)을 유급휴일로 보장받아야 합니다.",
+    "17. (대체휴일 적용) 공휴일이 주말과 겹치는 경우 발생하는 대체공휴일 역시 모든 사업장에서 유급휴일로 보장해야 합니다.",
+    "18. (휴일 조항 명시) 근로계약서에는 '주휴일'이 무슨 요일인지, '공휴일'을 유급으로 보장하는지 등 휴일에 관한 사항을 반드시 포함해야 합니다.",
+    "19. (5인 미만 사업장 예외) 연장·야간·휴일근로 가산수당, 연차유급휴가 등의 일부 규정은 상시 근로자 5인 미만 사업장에는 적용되지 않을 수 있으니 확인이 필요합니다.",
+    "20. (벌금과 별개로 임금 지급 의무) 사업주가 근로기준법 위반으로 벌금을 내더라도, 근로자에게 지급해야 할 주휴수당, 가산수당 등의 임금 지급 의무는 사라지지 않습니다.",
+    "21. (최저시급)2025년을 기준으로 최저시급은 10030원입니다. 이를 지키지 않을 경우, 5년 이하의 징역에 처할 수 있습니다."
 ]
 
 # ⭐️ 1. 개선된 Few-Shot 프롬프트 템플릿 정의
@@ -158,9 +158,14 @@ async def find_top_relevant_tips(question: str, top_n=3):
     return tips_str, top_score
 
 async def get_rag_response(question: str, relevant_tips: str) -> str:
+    today = datetime.date.today()
+    current_date_str = today.strftime('%Y년 %m월 %d일')
     system_prompt = f"""
+오늘은 {current_date_str}입니다.
 당신은 근로기준 전문가입니다.
 주어진 팁만을 기반으로 답변하세요.
+만약 질문에 대한 답변이 [참고 자료]에 명확히 나와있지 않다면,
+       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보(예: 2023년 기준, 육아휴직 등)가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
 
 --- 참고 자료 ---
 {relevant_tips}
@@ -207,6 +212,10 @@ async def get_smart_extraction(
     6. 답변이 원하는 대답이 아니면 다시 질문하고 원하는 답이 나오면 그 답을 변수에 채워넣습니다.
     7. `bonus_amount` 등 금액을 나타내는 필드에는 단위(예: 원, 만원)을 지우고 숫자 및 쉼표만 입력합니다. (예: "500,000")
     8. 성명(이름)을 묻는 질문에는 사용자가 '홍길', '이 산' 처럼 2글자나 외자 이름을 입력하더라도, 오타가 명확하지 않다면 그대로 추출하세요. 되묻지 마십시오.
+    9. 참고 자료에 없는 내용은 언급하지 마십시오. (예: "2023년 정보는 없습니다" 같은 말 금지)
+    10.만약 사용자가 정보를 입력하는 대신 **"최저시급이 얼마야?", "주휴수당 조건이 뭐야?", "4대보험 꼭 해야해?"** 처럼
+       법률적인 정보나 일반적인 지식을 묻는 질문(Question)을 한다면, 
+       즉시 `status: "rag_required"`를 반환하십시오. 이때 `filled_fields`는 비워둡니다.
 
     [JSON 반환 형식]
     {json_format_example}
@@ -267,29 +276,27 @@ async def get_smart_extraction(
             "bonus_none": false,           /* HTML '없음' 체크 */
             "is_bonus_paid_yes_o": "O",
             "is_bonus_paid_no_o": " "
-        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 2: '없음' 선택]
         question: "{question}"
         user_message: "아니요 없습니다"
         AI: {{"status": "success", "filled_fields": {{
-            "bonus_amount": "", 
             "bonus_yes": false, /* HTML '있음' 체크 해제 */
             "bonus_none": true, /* HTML '없음' 체크 */
             "is_bonus_paid_yes_o": " ",
             "is_bonus_paid_no_o": "O"
-        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 3: '없음' 선택 (단답형/반말 - '아니.', '없어')]
         question: "{question}"
         user_message: "아니."
         AI: {{"status": "success", "filled_fields": {{
-            "bonus_amount": "", 
             "bonus_yes": false,
             "bonus_none": true,
             "is_bonus_paid_yes_o": " ",
             "is_bonus_paid_no_o": "O"
-        }}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     elif field_id == "bonus_amout": # ⭐️ 새로 추가된 필드
@@ -310,7 +317,7 @@ async def get_smart_extraction(
         [예시 1: 요일 입력 (성공)]
         question: "{question}"
         user_message: "매주 일요일로 정했습니다."
-        AI: {{"status": "success", "filled_fields": {{"Weekly_Paid_Holiday": "매주 일요일"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"Weekly_Paid_Holiday": "일"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 2: 공백 입력 (없음)]
         question: "{question}"
@@ -348,7 +355,7 @@ async def get_smart_extraction(
             "other_allowance_2": "", 
             "other_allowance_3": "", 
             "other_allowance_4": ""
-        }}, "skip_next_n_questions": 4, "follow_up_question": null}}
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     elif field_id.startswith("other_allowance_"):
         # 현재 field_id에서 숫자 추출 (예: "other_allowance_2" -> 2)
@@ -713,7 +720,7 @@ async def process_message(
         for _ in range(skip_n):
             _, idx = find_next_question(content)
             if idx < len(CONTRACT_SCENARIO):
-                content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+                content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
 
         # 재질문(clarify) 처리
         if ai.get("status") == "clarify":
@@ -728,125 +735,7 @@ async def process_message(
                 chat_history=new_chat_history
             )
         
-        '''
-    # ✅ 3) RAG 여부 판단
-    tips, score = await find_top_relevant_tips(message)
-    is_legal_question = score >= SIMILARITY_THRESHOLD
 
-    if is_legal_question:
-        rag = await get_rag_response(message, tips)
-
-        # -----------------------------------------------------------------
-        # ✅ [2. CHAT HISTORY 추가] (RAG 턴 기록)
-        # RAG는 [사용자 질문] -> [봇 답변] 순서입니다.
-        new_chat_history.append({"sender": "user", "message": message})
-        new_chat_history.append({"sender": "bot", "message": rag})
-        # -----------------------------------------------------------------
-        
-        follow = (
-            f"\n\n이어서 진행합니다.\n{current_item['question']}"
-            if current_item else "\n\n계약서 작성을 모두 완료했습니다."
-        )
-
-        return schemas.ChatResponse(
-            reply=rag + follow,
-            updated_field=None,
-            is_finished=(current_item is None),
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-
-    # ✅ 4) 폼 답변 처리
-    if not current_item:
-        return schemas.ChatResponse(
-            reply="모든 항목이 이미 채워졌습니다!",
-            updated_field=None,
-            is_finished=True,
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-    
-    # -----------------------------------------------------------------
-    # ✅ [3. CHAT HISTORY 추가] (폼 턴 기록)
-    # 폼 답변은 [봇 질문] -> [사용자 답변] 순서입니다.
-    new_chat_history.append({"sender": "bot", "message": current_bot_question})
-    new_chat_history.append({"sender": "user", "message": message})
-    # -----------------------------------------------------------------
-
-    # 실제 필드 처리
-    ai = await get_smart_extraction(
-        client,
-        current_item["field_id"],
-        message,
-        current_item["question"]
-    )
-    
-    # ✅ AI가 반환한 filled_fields 적용
-    new_fields = ai.get("filled_fields", {})
-
-    # -------------------------------------------------------------
-    # ⭐️⭐️⭐️ [여기에 기타 급여 항목 합치기 로직 추가] ⭐️⭐️⭐️
-    # -------------------------------------------------------------
-    field_id = current_item["field_id"]
-    if field_id.startswith("other_allowance_"):
-        
-        # 1. 이전 임시 정보 로드
-        item_temp = content.get(f"{field_id}_item_temp")
-        amount_temp = content.get(f"{field_id}_amount_temp")
-        
-        # 2. 새로 들어온 필드 확인
-        new_item = new_fields.get(f"{field_id}_item_temp")
-        new_amount = new_fields.get(f"{field_id}_amount_temp")
-
-        # 3. 최종 값 결정 (새로운 값이 있으면 사용, 없으면 이전 값 사용)
-        final_item = new_item if new_item else item_temp
-        final_amount = new_amount if new_amount else amount_temp
-
-        # 4. 임시 필드를 content에 먼저 저장 (이전 정보 덮어쓰기 포함)
-        content.update(new_fields) 
-        
-        # 5. 최종 완성 체크: 항목과 금액이 모두 있다면 합치고 임시 필드 삭제
-        if final_item and final_amount:
-            # 최종 필드 완성 (예: "교통비 50,000원")
-            content[field_id] = f"{final_item} {final_amount}"
-            
-            # 임시 필드 삭제 (다음 턴에서 합쳐지지 않도록)
-            content.pop(f"{field_id}_item_temp", None)
-            content.pop(f"{field_id}_amount_temp", None)
-            
-            # 6. 상태 강제 변경 및 응답 필드 업데이트
-            ai['status'] = "success" # 강제로 성공 상태로 전환하여 다음 질문으로 이동
-            # 최종 필드가 업데이트되었음을 시스템에 알림
-            new_fields.clear() # 임시 필드를 제거하고
-            new_fields[field_id] = content[field_id] # 최종 필드만 남김
-        else:
-            # 항목이나 금액 중 하나만 있다면, 다음 질문으로 계속 유도
-            # ai['status']가 clarify라면 그대로 진행됨
-            pass
-    # -------------------------------------------------------------
-    # ⭐️⭐️⭐️ [기타 급여 항목 합치기 로직 끝] ⭐️⭐️⭐️
-    # -------------------------------------------------------------
-    
-    content.update(new_fields)
-
-    # ✅ skip_next_n_questions 적용
-    skip_n = ai.get("skip_next_n_questions", 0)
-    for _ in range(skip_n):
-        _, idx = find_next_question(content)
-        if idx < len(CONTRACT_SCENARIO):
-            content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
-
-    # ✅ follow-up 질문이 있으면 그대로 반환
-    if ai.get("status") == "clarify":
-        return schemas.ChatResponse(
-            reply=ai["follow_up_question"],
-            updated_field=None,
-            is_finished=False,
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-    '''
-        
     # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
