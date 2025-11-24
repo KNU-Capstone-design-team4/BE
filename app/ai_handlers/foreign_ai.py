@@ -51,12 +51,16 @@ CONTRACT_SCENARIO = [
     {"field_id": "school_status", "question": "재학여부를 알려주세요.(미취학, 초, 중, 고)"},
     {"field_id": "school_type", "question": "학교 종류를 알려주세요(교육청 인가, 교육청 비인가, 대안학교)"},
     {"field_id": "school_name", "question": "학교이름을 알려주세요"},
+    {"field_id": "school_phone", "question": "학교 전화번호를 알려주세요."},    
 
     # 3-2. [조건부 질문 5] '근무자' 선택 시
     {"field_id": "current_workspace", "question": "이전까지 일하던 근무처(회사명)를 알려주세요."},
     {"field_id": "cur_business_regis_num", "question": "이전까지 일했던 근무처의 사업자등록 번호를 알려주세요."},
+    {"field_id": "current_work_phone", "question": "이전까지 일했던 근무처의 전화번호를 알려주세요."},
+    
     {"field_id": "new_workplace", "question": "앞으로 일할 근무처(회사명)를 알려주세요."},
     {"field_id": "new_business_regis_num", "question": "앞으로 일할 근무처의 사업자등록 번호를 알려주세요."},
+    {"field_id": "new_work_phone", "question": "앞으로 일할 근무처의 전화번호를 알려주세요."},
     {"field_id": "occupation", "question": "현재 직업(직종)을 알려주세요."},
     {"field_id": "annual_income", "question": "연 소득 금액을 만원 단위로 알려주세요."},
     

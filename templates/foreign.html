@@ -4,16 +4,16 @@
 
     <p>
         <strong>□ 신청/신고 선택 (SELECT APPLICATION/REPORT)</strong><br>
-        <label><input type="checkbox" name="reg"> 외국인 등록</label><br>
-        <label><input type="checkbox" name="activity"> 체류자격외 활동허가 (희망자격: <input type="text" name="activity_status">)</label><br>
-        <label><input type="checkbox" name="reissue"> 등록증 재발급</label><br>
-        <label><input type="checkbox" name="workplace_change"> 근무처 변경·추가 허가/신고</label><br>
-        <label><input type="checkbox" name="extension"> 체류기간 연장허가</label><br>
-        <label><input type="checkbox" name="residence_change"> 체류지 변경 신고</label><br>
-        <label><input type="checkbox" name="status_change"> 체류자격 변경허가 (희망자격: <input type="text" name="hope_status_change">)</label><br>
-        <label><input type="checkbox" name="reentry"> 재입국허가 (단수 / 복수)</label><br>
-        <label><input type="checkbox" name="grant_status"> 체류자격 부여 (희망자격: <input type="text" name="hope_grant_status">)</label><br>
-        <label><input type="checkbox" name="info_change"> 등록사항 변경신고</label>
+        <label><input type="checkbox" name="fore_resident_regis"> 외국인 등록</label><br>
+        <label><input type="checkbox" name="engage_act_not_sojo"> 체류자격외 활동허가 (희망자격: <input type="text" name="app_other_desired">)</label><br>
+        <label><input type="checkbox" name="re_regis_card"> 등록증 재발급</label><br>
+        <label><input type="checkbox" name="chg_add_wrkplc"> 근무처 변경·추가 허가/신고</label><br>
+        <label><input type="checkbox" name="ex_sojo_peri"> 체류기간 연장허가</label><br>
+        <label><input type="checkbox" name="alt_residence"> 체류지 변경 신고</label><br>
+        <label><input type="checkbox" name="chg_stus_sojo"> 체류자격 변경허가 (희망자격: <input type="text" name="app_change_desired">)</label><br>
+        <label><input type="checkbox" name="reen_permit"> 재입국허가 (단수 / 복수)</label><br>
+        <label><input type="checkbox" name="grant_sojourm"> 체류자격 부여 (희망자격: <input type="text" name="app_grant_desired">)</label><br>
+        <label><input type="checkbox" name="chg_registration"> 등록사항 변경신고</label>
     </p>
 
     <h3>1. 인적 사항 (Applicant Information)</h3>
@@ -25,57 +25,57 @@
 
     <p>
         생년월일(Date of Birth):  
-        <input type="text" name="birth_year" style="width:60px;"> 년  
-        <input type="text" name="birth_month" style="width:40px;"> 월  
-        <input type="text" name="birth_day" style="width:40px;"> 일  
+        <input type="text" name="birth_yyyy" style="width:60px;"> 년  
+        <input type="text" name="birth_mm" style="width:40px;"> 월  
+        <input type="text" name="birth_dd" style="width:40px;"> 일  
         <br>
         성별(Sex):  
-        <label><input type="radio" name="sex" value="M"> 남(M)</label>  
-        <label><input type="radio" name="sex" value="F"> 여(F)</label>
+        <label><input type="radio" name="sex_m_check" value="M"> 남(M)</label>  
+        <label><input type="radio" name="sex_f_check" value="F"> 여(F)</label>
     </p>
 
     <p>
         외국인등록번호 (Foreign Resident Registration No.):  
-        <input type="text" name="frn">
+        <input type="text" name="foreign_num">
     </p>
 
     <p>
-        여권 번호 (Passport No.): <input type="text" name="passport_no"><br>
-        여권 발급일자: <input type="text" name="passport_issue"><br>
-        여권 유효기간: <input type="text" name="passport_expiry">
+        여권 번호 (Passport No.): <input type="text" name="passport_num"><br>
+        여권 발급일자: <input type="text" name="passport_date"><br>
+        여권 유효기간: <input type="text" name="passport_expired">
     </p>
 
     <p>
-        국적(Nationality): <input type="text" name="nationality">
+        국적(Nationality): <input type="text" name="nation">
     </p>
 
     <p>
-        대한민국 내 주소(Address in Korea): <input type="text" name="address_korea"><br>
-        전화 번호(Phone No.): <input type="text" name="phone">
+        대한민국 내 주소(Address in Korea): <input type="text" name="korea_address"><br>
+        전화 번호(Phone No.): <input type="text" name="tele_num">
     </p>
 
     <p>
-        본국 주소(Address in Home Country): <input type="text" name="address_home"><br>
-        휴대 전화(Cell phone No.): <input type="text" name="cellphone">
+        본국 주소(Address in Home Country): <input type="text" name="address_in_home_country"><br>
+        휴대 전화(Cell phone No.): <input type="text" name="phone_num">
     </p>
 
     <p>
         전자우편(E-Mail): <input type="email" name="email"><br>
-        직업(Occupation): <input type="text" name="occupation">
+        직업(Occupation): <input type="text" name="occupation_type">
     </p>
 
     <h3>2. 재학 여부 (School Status)</h3>
 
     <p>
-        <label><input type="checkbox" name="school_none"> 미취학</label>
-        <label><input type="checkbox" name="school_elem"> 초</label>
-        <label><input type="checkbox" name="school_mid"> 중</label>
-        <label><input type="checkbox" name="school_high"> 고</label>
+        <label><input type="checkbox" name="non"> 미취학</label>
+        <label><input type="checkbox" name="ele"> 초</label>
+        <label><input type="checkbox" name="mid"> 중</label>
+        <label><input type="checkbox" name="hi"> 고</label>
         <br>
         학교 종류(Type):  
-        <label><input type="checkbox" name="school_authorized"> 교육청 인가</label>  
-        <label><input type="checkbox" name="school_unauthorized"> 교육청 비인가</label>  
-        <label><input type="checkbox" name="school_alt"> 대안학교</label>
+        <label><input type="checkbox" name="ac"> 교육청 인가</label>  
+        <label><input type="checkbox" name="no_ac"> 교육청 비인가</label>  
+        <label><input type="checkbox" name="alt"> 대안학교</label>
         <br><br>
         학교 이름(Name of School): <input type="text" name="school_name"><br>
         학교 전화 번호(Phone No.): <input type="text" name="school_phone">
@@ -85,29 +85,29 @@
 
     <p>
         <strong>원 근무처(Current Workplace)</strong><br>
-        사업자등록번호: <input type="text" name="current_business_no"><br>
+        사업자등록번호: <input type="text" name="cur_business_regis_num"><br>
         전화 번호: <input type="text" name="current_work_phone">
     </p>
 
     <p>
         <strong>예정 근무처(New Workplace)</strong><br>
-        사업자등록번호: <input type="text" name="new_business_no"><br>
+        사업자등록번호: <input type="text" name="new_business_regis_num"><br>
         전화 번호: <input type="text" name="new_work_phone">
     </p>
 
     <h3>4. 기타 정보</h3>
 
     <p>
-        연소득금액(Annual Income Amount): <input type="text" name="income"> 만원<br>
-        재입국 신청 기간(Intended Period of Reentry): <input type="text" name="reentry_period"><br>
-        반환용 계좌번호(Refund Bank Account No.): <input type="text" name="refund_account">
+        연소득금액(Annual Income Amount): <input type="text" name="annual_income"> 만원<br>
+        재입국 신청 기간(Intended Period of Reentry): <input type="text" name="intended_period_reentry"><br>
+        반환용 계좌번호(Refund Bank Account No.): <input type="text" name="refund_bank_account">
     </p>
 
     <h3>5. 신청 관련</h3>
 
     <p>
         신청일(Date of Application):  
-        <input type="text" name="application_date">
+        <input type="text" name="apply_date">
         <br><br>
         신청인 서명 또는 인(Signature/Seal):  
         <input type="text" name="applicant_signature">
