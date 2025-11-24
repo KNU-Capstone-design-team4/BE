@@ -22,7 +22,7 @@ def find_next_question(contract):
         item, _ = foreign_ai.find_next_question(content)
 
     elif contract.contract_type == "위임장":
-        item, _ = foreign_ai.find_next_question(content)
+        item, _ = attorney_ai.find_next_question(content)
 
     # ✅ item이 None이면 다음 질문이 없다는 뜻 → None 반환
     if item is None:

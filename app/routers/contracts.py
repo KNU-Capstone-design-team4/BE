@@ -77,10 +77,11 @@ async def create_new_contract(
     # 5. 초기 채팅 내역 리스트 생성
     initial_chat_history = [
         {
-            "role": "assistant", 
+            "role": "bot", 
             "message": welcome_msg 
         }
     ]
+
     # 6. DB 업데이트 (crud.update_contract 활용)
     # crud.update_contract는 content와 chat_history를 모두 받으므로,
     # 기존 content(빈 딕셔너리)는 그대로 유지하고 chat_history만 채워서 보냅니다.
