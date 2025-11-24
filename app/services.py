@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from docxtpl import DocxTemplate
 
 from . import crud, models, schemas
-from .ai_handlers import working_ai, foreign_ai
+from .ai_handlers import working_ai, foreign_ai, attorney_ai
 
-from .ai_handlers import working_ai, foreign_ai
+from .ai_handlers import working_ai, foreign_ai ,attorney_ai
 
-from .ai_handlers import working_ai, foreign_ai
+from .ai_handlers import working_ai, foreign_ai ,attorney_ai
 
 def find_next_question(contract):
     """contract_type 에 따라 적절한 AI 핸들러로 라우팅하고,
@@ -21,8 +21,8 @@ def find_next_question(contract):
     elif contract.contract_type == "통합신청서":
         item, _ = foreign_ai.find_next_question(content)
 
-    else:
-        raise ValueError(f"Unknown contract type: {contract.contract_type}")
+    elif contract.contract_type == "위임장":
+        item, _ = foreign_ai.find_next_question(content)
 
     # ✅ item이 None이면 다음 질문이 없다는 뜻 → None 반환
     if item is None:
@@ -39,6 +39,8 @@ def get_contract_handler(contract_type: str):
         return working_ai
     elif contract_type == "통합신청서":
         return foreign_ai
+    elif contract_type == "위임장":
+        return attorney_ai
     else:
         raise ValueError(f"지원하지 않는 계약서 타입입니다: {contract_type}")
 
