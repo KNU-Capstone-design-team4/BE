@@ -272,6 +272,23 @@ async def get_smart_extraction(client: AsyncOpenAI, field_id: str, user_message:
         [JSON 포맷]
         {json_format_example}
         """
+
+        if field_id == "property_description_text":
+            system_prompt += f"""
+        
+        [주소 추출 특별 규칙]
+        - 사용자의 답변에서 '입니다', '이요', '요', '위치해있어요' 같은 서술어와 말꼬리를 제거하세요.
+        - 오직 주소 검색 API에 넣을 수 있는 '순수 주소 문자열'만 추출하세요.
+        
+        [주소 예시]
+        Q: 주소가 어디인가요?
+        A: 대구 북구 80입니다
+        -> filled_fields: {{"{field_id}": "대구 북구 80"}}
+
+        Q: 정확한 주소를 알려주세요.
+        A: 서울시 강남구 도곡동 타워팰리스 101동 200호요.
+        -> filled_fields: {{"{field_id}": "서울시 강남구 도곡동 타워팰리스 101동 200호"}}
+        """
         
         try:
             response = await client.chat.completions.create(
@@ -389,30 +406,21 @@ async def process_message(
     new_chat_history.append({"sender": "user", "message": message})
 
 
-    ##주소##
     if current_item and current_item["field_id"] == "property_description_text":
          
-         # 1. 임시 저장된 주소 정보 확인
          temp_text = content.get("temp_property_text")
-
-         # [공통 변수 선언]
          positive_answers = ["네", "예", "맞아요", "맞습니다", "응", "ㅇㅇ", "yes", "ok"]
          negative_answers = ["아니요", "아니", "ㄴㄴ", "no", "놉", "틀렸어", "틀립니다"]
          msg_clean = message.strip().replace(".", "").replace("!", "")
 
          # [Case A] 확인 대기 중 (이미 한 번 조회함)
          if temp_text:
-             
-             # (1) "네" -> 최종 확정 및 저장
+             # (1) "네" -> 최종 확정
              if any(ans == msg_clean or msg_clean.startswith(ans) for ans in positive_answers):
                  content["property_description_text"] = temp_text
-                 content.pop("temp_property_text", None) # 임시 데이터 삭제
+                 content.pop("temp_property_text", None)
                  
                  next_item, _ = find_next_question(content)
-                 
-                 # 멘트 분리해서 저장
-                 new_chat_history.append({"sender": "bot", "message": "네, 확인했습니다."})
-
                  if next_item:
                      next_question = next_item['question']
                      new_chat_history.append({"sender": "bot", "message": next_question})
@@ -422,59 +430,43 @@ async def process_message(
                      new_chat_history.append({"sender": "bot", "message": reply})
                  
                  return schemas.ChatResponse(
-                     reply="",
+                     reply=reply,
                      updated_field=[{"field_id": "property_description_text", "value": temp_text}],
                      is_finished=(next_item is None),
                      full_contract_data=content,
                      chat_history=new_chat_history
                  )
              
-             # ⭐️ [핵심 수정 부분] (2) 부정 답변 키워드인 경우 -> 재입력 요청 (API 호출 X)
+             # (2) "아니요" -> 재입력 유도
              elif any(word in msg_clean for word in negative_answers):
                  reply = "네, 알겠습니다. 수정할 주소를 다시 입력해 주세요."
                  new_chat_history.append({"sender": "bot", "message": reply})
-                 
-                 return schemas.ChatResponse(
-                     reply=reply,
-                     updated_field=None, 
-                     is_finished=False,
-                     full_contract_data=content,
-                     chat_history=new_chat_history
-                 )
-             
-             # (3) 새로운 주소로 간주 -> 재조회 (API 호출)
-             else:
-                 full_text = await get_property_text_by_address(message)
-                 content["temp_property_text"] = full_text # 임시 데이터 갱신
-                 
-                 reply = f"주소를 다시 조회했습니다.\n\n[조회 결과]\n{full_text}\n\n이 정보가 맞나요?"
-                 new_chat_history.append({"sender": "bot", "message": reply})
-                 
-                 return schemas.ChatResponse(
-                     reply=reply,
-                     updated_field=None, 
-                     is_finished=False,
-                     full_contract_data=content,
-                     chat_history=new_chat_history
-                 )
-
-         # [Case B] 처음 주소를 입력하는 경우 (if temp_text: 에 대한 else)
-         else:
-             full_text = await get_property_text_by_address(message)
-             content["temp_property_text"] = full_text
-             
-             reply = f"주소를 확인하여 부동산 정보를 불러왔습니다.\n\n[조회 결과]\n{full_text}\n\n정보가 맞다면 '네', 아니라면 정확한 주소를 다시 입력해주세요."
-             
-             new_chat_history.append({"sender": "bot", "message": reply})
-             
-             return schemas.ChatResponse(
-                 reply=reply,
-                 updated_field=None,
-                 is_finished=False,
-                 full_contract_data=content,
-                 chat_history=new_chat_history
-             )
-        ### 주소 ###
+                 return schemas.ChatResponse(reply=reply, updated_field=None, is_finished=False, full_contract_data=content, chat_history=new_chat_history)
+        
+         # ⭐️ [핵심 수정] 주소 입력 상황 (처음 입력이든, 수정 입력이든 여기로 옴)
+         # 여기서 API 조회 전에 'AI'를 먼저 부릅니다!
+         
+         # 1. AI 호출 (스마트 추출 - 말꼬리 제거용)
+         ai_result = await get_smart_extraction(client, "property_description_text", message, current_bot_question)
+         
+         # 2. AI가 정제해준 주소 가져오기 (실패 시 원본 사용)
+         clean_address = ai_result.get("filled_fields", {}).get("property_description_text", message)
+         
+         # 3. 깨끗한 주소로 API 조회
+         full_text = await get_property_text_by_address(clean_address)
+         content["temp_property_text"] = full_text
+         
+         reply = f"주소를 확인하여 부동산 정보를 불러왔습니다.\n\n[조회 결과]\n{full_text}\n\n정보가 맞다면 '네', 아니라면 정확한 주소를 다시 입력해주세요."
+         new_chat_history.append({"sender": "bot", "message": reply})
+         
+         return schemas.ChatResponse(
+             reply=reply,
+             updated_field=None,
+             is_finished=False,
+             full_contract_data=content,
+             chat_history=new_chat_history
+         )
+    ### 주소 ###
     
     # -----------------------------------------------------------
     # ✅ [핵심 수정] 3) AI 추출 및 의도 파악

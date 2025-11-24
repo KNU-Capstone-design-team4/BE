@@ -71,16 +71,19 @@ async def create_new_contract(
     # 3. 계약서 타입에 맞는 인사말 가져오기
     welcome_msg = WELCOME_MESSAGES.get(contract_data.contract_type, "안녕하세요! LAW BOT입니다.")
     
-    # 4. 봇의 메시지 구성 (인사말 + 줄바꿈 + 첫 질문)
-    full_bot_message = f"{welcome_msg}\n\n{first_question}" if first_question else welcome_msg
-    
     # 5. 초기 채팅 내역 리스트 생성
     initial_chat_history = [
         {
-            "role": "bot", 
+            "sender": "bot", 
             "message": welcome_msg 
         }
     ]
+
+    if first_question:
+        initial_chat_history.append({
+            "sender": "bot",
+            "message": first_question
+        })
 
     # 6. DB 업데이트 (crud.update_contract 활용)
     # crud.update_contract는 content와 chat_history를 모두 받으므로,
