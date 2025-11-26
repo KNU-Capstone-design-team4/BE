@@ -4,6 +4,7 @@ import uuid
 import datetime
 import numpy as np
 import asyncio
+import re
 from pathlib import Path
 from typing import Dict, Optional, Any, Tuple, List
 from openai import AsyncOpenAI
@@ -56,11 +57,11 @@ CONTRACT_SCENARIO = [
     # 3-2. [조건부 질문 5] '근무자' 선택 시
     {"field_id": "current_workspace", "question": "이전까지 일하던 근무처(회사명)를 알려주세요."},
     {"field_id": "cur_business_regis_num", "question": "이전까지 일했던 근무처의 사업자등록 번호를 알려주세요."},
-    {"field_id": "current_work_phone", "question": "이전까지 일했던 근무처의 전화번호를 알려주세요."},
+    {"field_id": "cur_phone", "question": "이전까지 일했던 근무처의 전화번호를 알려주세요."},
     
     {"field_id": "new_workplace", "question": "앞으로 일할 근무처(회사명)를 알려주세요."},
     {"field_id": "new_business_regis_num", "question": "앞으로 일할 근무처의 사업자등록 번호를 알려주세요."},
-    {"field_id": "new_work_phone", "question": "앞으로 일할 근무처의 전화번호를 알려주세요."},
+    {"field_id": "new_phone", "question": "앞으로 일할 근무처의 전화번호를 알려주세요."},
     {"field_id": "occupation", "question": "현재 직업(직종)을 알려주세요."},
     {"field_id": "annual_income", "question": "연 소득 금액을 만원 단위로 알려주세요."},
     
@@ -226,12 +227,13 @@ async def get_smart_extraction(
     [규칙]
     1.  `filled_fields`에는 템플릿(`.docx`)의 변수명(field_id)을 key로 사용하여 추출한 값을 채워야 합니다.
     2.  `skip_next_n_questions`는 사용자의 답변으로 인해 불필요해진 *다음* 질문들의 '개수'입니다. (분기 로직의 핵심)
+    3.  [이름]은 사용자 입력을 영어로 변경하지 않는다. 사용자 입력이 영어인지 검증하여 한국어라면 다시 입력받는다. 
     3.  [생년월일] 형식은 'YYYY', 'MM', 'DD'로 분리하여 저장해야 합니다.
-    4.  [성별]은 'sex_m_check', 'sex_f_check' 변수에 "☒" 또는 "☐"로 채워야 합니다.
-    5.  [신청 항목]은 10개의 'fore_resident_regis', 're_regis_card' 등의 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    4.  [성별]은 'sex_m_check', 'sex_f_check' 변수에 true 또는 false로 채워야 합니다.
+    5.  [신청 항목]은 10개의 'fore_resident_regis', 're_regis_card' 등의 변수에 true 또는 false로 채워야 합니다.
     6.  [직업] (occupation_type) 질문은 사용자 답변을 저장하지 않습니다.
-    7.  [재학여부]는 'non', 'ele', 'mid', 'hi' 변수에 "☒" 또는 "☐"로 채워야 합니다.
-    8.  [학교종류]는 'ac', 'no_ac', 'alt' 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    7.  [재학여부]는 'non', 'ele', 'mid', 'hi' 변수에 true 또는 false로 채워야 합니다.
+    8.  [학교종류]는 'ac', 'no_ac', 'alt' 변수에 true 또는 false로 채워야 합니다.
     9.  *중요*: 스킵하는 필드들에는 빈 문자열 ""을 채워서 docx 템플릿의 {{변수}} 태그가 남지 않게 해야 합니다.
     10. 반드시 지정된 JSON 형식으로만 반환해야 합니다.
     11. 만약 사용자가 봇의 질문에 대답하지 않고, **법률적 질문, 절차 문의, 용어 정의** 등을 물어본다면:
@@ -262,15 +264,15 @@ async def get_smart_extraction(
     # [성별] -> 체크박스로 변환
     elif field_id == "sex":
         specific_examples = """
-        [예시 1: '남' 선택]
+        [예시 1: '남' 선택(HTML: true, DOCX: ☒)]
         question: "성별을 알려주세요. (남 / 여)"
         user_message: "남자입니다"
-        AI: {{"status": "success", "filled_fields": {{"sex_m_check": "☒", "sex_f_check": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"sex_m_check": true, "sex_f_check": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '여' 선택]
+        [예시 2: '여' 선택(HTML: true, DOCX: ☒)]
         question: "성별을 알려주세요. (남 / 여)"
         user_message: "여자"
-        AI: {{"status": "success", "filled_fields": {{"sex_m_check": "☐", "sex_f_check": "☒"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"sex_m_check": false, "sex_f_check": true}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
   # [분기 1: 신청 항목]
     elif field_id == "application_type":
@@ -284,46 +286,44 @@ async def get_smart_extraction(
         # (이 예시에서는 '희망 자격' 관련 질문 3개를 건너뛴다고 가정합니다)
         skip_count_for_simple_app = 3 
         
-        # ❗️ [수정] 10개 항목의 '체크 안 됨' 기본값
+        # 기본값 false
         all_app_fields_unselected = {
-            "fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"
+            "fore_resident_regis": False, "re_regis_card": False, "ex_sojo_peri": False,
+            "chg_stus_sojo": False, "grant_sojourm": False, "engage_act_not_sojo": False,
+            "chg_add_wrkplc": False, "reen_permit": False, "alt_residence": False, "chg_registration": False
         }
-        
-        # --- 10개 항목에 대한 '정답' 딕셔너리 미리 만들기 ---
-        
+                
         # (A) 단순 스킵 (skip: 3) 항목 7개
         fields_for_reg = all_app_fields_unselected.copy()
-        fields_for_reg["fore_resident_regis"] = "☒"
+        fields_for_reg["fore_resident_regis"] = True
         
         fields_for_reissue = all_app_fields_unselected.copy()
-        fields_for_reissue["re_regis_card"] = "☒"
+        fields_for_reissue["re_regis_card"] = True
         
         fields_for_extension = all_app_fields_unselected.copy()
-        fields_for_extension["ex_sojo_peri"] = "☒"
+        fields_for_extension["ex_sojo_peri"] = True
         
         fields_for_workplace = all_app_fields_unselected.copy()
-        fields_for_workplace["chg_add_wrkplc"] = "☒"
+        fields_for_workplace["chg_add_wrkplc"] = True
         
         fields_for_reentry = all_app_fields_unselected.copy()
-        fields_for_reentry["reen_permit"] = "☒"
+        fields_for_reentry["reen_permit"] = True
         
         fields_for_alt_res = all_app_fields_unselected.copy()
-        fields_for_alt_res["alt_residence"] = "☒"
+        fields_for_alt_res["alt_residence"] = True
         
         fields_for_chg_reg = all_app_fields_unselected.copy()
-        fields_for_chg_reg["chg_registration"] = "☒"
+        fields_for_chg_reg["chg_registration"] = True
 
         # (B) 조건부 질문 (skip: 0, 1, 2) 항목 3개
         fields_for_change = all_app_fields_unselected.copy()
-        fields_for_change["chg_stus_sojo"] = "☒"
+        fields_for_change["chg_stus_sojo"] = True
 
         fields_for_grant = all_app_fields_unselected.copy()
-        fields_for_grant["grant_sojourm"] = "☒"
+        fields_for_grant["grant_sojourm"] = True
 
         fields_for_other = all_app_fields_unselected.copy()
-        fields_for_other["engage_act_not_sojo"] = "☒"
+        fields_for_other["engage_act_not_sojo"] = True
         
         # --- 10개 항목 전체에 대한 예시 프롬프트 생성 ---
         specific_examples = f"""
@@ -333,72 +333,52 @@ async def get_smart_extraction(
         [예시 1: '외국인 등록' (단순 스킵 3)]
         question: "{question}"
         user_message: "1번 외국인 등록이요"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☒", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_reg)}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
 
         [예시 2: '등록증 재발급' (단순 스킵 3)]
         question: "{question}"
         user_message: "등록증 재발급"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☒", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_reissue)}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
         
         [예시 3: '체류기간 연장' (단순 스킵 3)]
         question: "{question}"
         user_message: "체류기간 연장허가"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☒",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_extension)}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
 
         [예시 4: '체류자격 변경' (스킵 0)]
         question: "{question}"
         user_message: "체류자격 변경허가 신청할게요"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☒", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_change)}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
         [예시 5: '체류자격 부여' (스킵 1)]
         question: "{question}"
         user_message: "자격 부여"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☒", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 1, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_grant)}, "skip_next_n_questions": 1, "follow_up_question": null}}
 
         [예시 6: '체류자격외 활동' (스킵 2)]
         question: "{question}"
         user_message: "6번이요"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☒",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": 2, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_other)}, "skip_next_n_questions": 2, "follow_up_question": null}}
         
         [예시 7: '근무처 변경' (단순 스킵 3)]
         question: "{question}"
         user_message: "근무처 변경 신고"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☒", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_workplace)}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
         
         [예시 8: '재입국 허가' (단순 스킵 3)]
         question: "{question}"
         user_message: "재입국 허가"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☒", "alt_residence": "☐", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_reentry)}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
         
         [예시 9: '체류지 변경' (단순 스킵 3)]
         question: "{question}"
         user_message: "체류지 변경"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☒", "chg_registration": "☐"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_alt_res )}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
         
         [예시 10: '등록사항 변경' (단순 스킵 3)]
         question: "{question}"
         user_message: "등록사항 변경 신고"
-        AI: {{"status": "success", "filled_fields": {{"fore_resident_regis": "☐", "re_regis_card": "☐", "ex_sojo_peri": "☐",
-            "chg_stus_sojo": "☐", "grant_sojourm": "☐", "engage_act_not_sojo": "☐",
-            "chg_add_wrkplc": "☐", "reen_permit": "☐", "alt_residence": "☐", "chg_registration": "☒"}}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {json.dumps(fields_for_chg_reg )}, "skip_next_n_questions": {skip_count_for_simple_app}, "follow_up_question": null}}
         """
        
     # --------------------------------------------------------------------
@@ -454,43 +434,34 @@ async def get_smart_extraction(
     elif field_id == "occupation_type":
         # ❗️ [중요] 시나리오 리스트(1단계)를 기준으로 건너뛸 질문 개수 계산
         # 예: '학생' 질문(3개), '근무자' 질문(4개), '근무처 변경' 질문(2개)
-        student_q_count = 3
-        worker_q_count = 6
+        student_q_count = 4
+        worker_q_count = 8
         
         #print("start OT")
         # 1. '학생' 선택 시: '근무자' 필드를 비우고, '근무자' 질문(6개) 스킵
         student_example_fields = {
-            "current_workspace": "__SKIPPED__", 
-            "cur_business_regis_num": "__SKIPPED__", 
-            "new_workplace": "__SKIPPED__", 
-            "new_business_regis_num": "__SKIPPED__",
-            "occupation": "__SKIPPED__",
-            "annual_income": "__SKIPPED__"
+            "current_workspace": "", 
+            "cur_business_regis_num": "", 
+            "new_workplace": "", 
+            "new_business_regis_num": "",
+            "occupation": "학생",
+            "annual_income": ""
         }
-        student_example_json = json.dumps({
-            "status": "success",
-            "filled_fields": student_example_fields,
-            "skip_next_n_questions": 0, # [수정] 0 -> worker_q_count
-            "follow_up_question": None
-        })
-
-        # 2. '근무자' 선택 시: '학생' 필드를 비우고, '학생' 질문(3개) 스킵
-        worker_example_fields = {
-            "non": "☐", "ele": "☐", "mid": "☐", "hi": "☐",
-            "ac": "☐", "no_ac": "☐", "alt": "☐",
-            "school_name": ""
+        
+        worker_fields_to_skip = {
+            "current_workspace": "", "cur_business_regis_num": "", "cur_phone": "",
+            "new_workplace": "", "new_business_regis_num": "", "new_phone": "",
+            "occupation": "학생", "annual_income": ""
         }
-        worker_example_json = {
-            "status": "success",
-            "filled_fields": {"non": "☐", "ele": "☐", "mid": "☐", "hi": "☐",
-            "ac": "☐", "no_ac": "☐", "alt": "☐",
-            "school_name": ""},
-            "skip_next_n_questions": 0, # 원래 student_q_count가 맞습니다. 이중스킵으로 일단 0으로 설정. 수정필요.
-            "follow_up_question": None
+        
+        student_fields_to_skip = {
+            "non": False, "ele": False, "mid": False, "hi": False,
+            "ac": False, "no_ac": False, "alt": False,
+            "school_name": "", "school_phone": ""
         }
         
         # 3. '기타' 선택 시: '학생' + '근무자' 필드를 비우고, '학생'(3개) + '근무자'(6개) 질문 스킵
-        other_example_fields = {**student_example_fields, **worker_example_fields}
+        other_example_fields = {**student_example_fields, **student_fields_to_skip}
         other_example_json = json.dumps({
             "status": "success",
             "filled_fields": other_example_fields,
@@ -502,17 +473,17 @@ async def get_smart_extraction(
         [예시 1: '학생' 선택 (다음 질문으로 이동, {len(student_example_fields)}개 필드 비움)]
         question: "{question}"
         user_message: "저 학생이에요"
-        AI: {student_example_json}
+        AI: {{"status": "success", "filled_fields": {json.dumps(worker_fields_to_skip, ensure_ascii=False)}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '근무자' 선택 (학생 관련 질문 {student_q_count}개 스킵 + {len(worker_example_fields)}개 필드 비움)]
+        [예시 2: '근무자' 선택 (학생 관련 질문 {student_q_count}개 스킵 + {len(student_fields_to_skip)}개 필드 비움)]
         question: "{question}"
         user_message: "회사 다니고 있어요"
-        AI: {worker_example_json}
+        AI: {{"status": "success", "filled_fields": {json.dumps(student_fields_to_skip, ensure_ascii=False)}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
         [예시 3: '기타' 선택 (학생+근무자 질문 {student_q_count + worker_q_count}개 스킵 + {len(other_example_fields)}개 필드 비움)]
         question: "{question}"
         user_message: "둘 다 아닙니다."
-        AI: {other_example_json}
+        AI: {{"status": "success", "filled_fields": {json.dumps({**student_fields_to_skip, **worker_fields_to_skip}, ensure_ascii=False)}, "skip_next_n_questions": {student_q_count + worker_q_count}, "follow_up_question": null}}
         """
         print("slelect occpu_type")
         
@@ -524,12 +495,12 @@ async def get_smart_extraction(
         [예시 1: '초' 선택]
         question: "{question}"
         user_message: "초등학교요"
-        AI: {{"status": "success", "filled_fields": {{"non": "☐", "ele": "☒", "mid": "☐", "hi": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"non": false, "ele": true, "mid": false, "hi": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
         [예시 2: '미취학' 선택]
         question: "{question}"
         user_message: "미취학입니다"
-        AI: {{"status": "success", "filled_fields": {{"non": "☒", "ele": "☐", "mid": "☐", "hi": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"non": true, "ele": false, "mid": false, "hi": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
         print("select school status")
         
@@ -542,12 +513,12 @@ async def get_smart_extraction(
         [예시 1: '교육청 인가' 선택]
         question: "{question}"
         user_message: "교육청 인가받은 곳이에요"
-        AI: {{"status": "success", "filled_fields": {{"ac": "☒", "no_ac": "☐", "alt": "☐"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"ac": true, "no_ac": false, "alt": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         
         [예시 2: '대안학교' 선택]
         question: "{question}"
         user_message: "대안학교"
-        AI: {{"status": "success", "filled_fields": {{"ac": "☐", "no_ac": "☐", "alt": "☒"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"ac": false, "no_ac": false, "alt": true}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
         print("select school type")
         
@@ -556,7 +527,15 @@ async def get_smart_extraction(
         [예시 1: 학교 이름 입력]
         question: "{question}"
         user_message: "대구고등학교 입니다."
-        AI: {{"status": "success", "filled_fields": {{"{field_id}": "대구고등학교"}}, "skip_next_n_questions": 6, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "대구고등학교"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+    
+    elif field_id == "school_phone":
+        specific_examples = f"""
+        [예시 1: 학교 전화번호 입력]
+        question: "{question}"
+        user_message: "02-123-4567 입니다."
+        AI: {{"status": "success", "filled_fields": {{"{field_id}": "02-123-4567"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
 
     # [기본 텍스트] 예시
@@ -662,6 +641,66 @@ def find_next_question(
 
     return current_question_item, current_question_index
 
+def validate_fields(new_fields: Dict[str, Any]) -> Optional[str]:
+    """
+    AI가 추출한 데이터(new_fields)의 유효성을 검사합니다.
+    문제가 있으면 에러 메시지(str)를 반환하고, 문제가 없으면 None을 반환합니다.
+    """
+    
+    # 1. 영문 성/이름 검증 (surname, given_names)
+    # -> 영문 대소문자와 공백만 허용
+    for field in ["surname", "given_names"]:
+        if field in new_fields:
+            value = new_fields[field]
+            if not re.match(r"^[a-zA-Z\s]+$", str(value)):
+                return "성명(Surname/Given Names)은 반드시 '영문'으로 입력해야 합니다. (한글 불가)"
+
+    # 2. 생년월일 검증 (birth_yyyy, birth_mm, birth_dd)
+    # -> 숫자 범위 확인
+    if "birth_yyyy" in new_fields:
+        y = int(new_fields["birth_yyyy"])
+        if not (1900 <= y <= datetime.date.today().year):
+            return "태어난 연도가 올바르지 않습니다."
+            
+    if "birth_mm" in new_fields:
+        m = int(new_fields["birth_mm"])
+        if not (1 <= m <= 12):
+            return "월(Month)은 1~12 사이의 숫자여야 합니다."
+            
+    if "birth_dd" in new_fields:
+        d = int(new_fields["birth_dd"])
+        if not (1 <= d <= 31):
+            return "일(Day)은 1~31 사이의 숫자여야 합니다."
+
+    # 3. 외국인등록번호 검증 (foreign_num)
+    # -> 13자리 숫자 (하이픈 포함 여부 고려)
+    if "foreign_num" in new_fields:
+        # 숫자만 추출
+        num_only = re.sub(r"[^0-9]", "", str(new_fields["foreign_num"]))
+        if len(num_only) != 13:
+            return "외국인등록번호는 13자리 숫자여야 합니다."
+
+    # 4. 전화번호 검증 (tele_num, phone_num)
+    # -> 숫자와 하이픈만 허용, 최소 길이 확인
+    for field in ["tele_num", "phone_num"]:
+        if field in new_fields:
+            value = new_fields[field]
+            # 간단한 정규식: 숫자, 하이픈, 공백, 괄호 허용
+            if not re.match(r"^[0-9\-\s\(\)]+$", str(value)):
+                return "전화번호 형식이 올바르지 않습니다."
+            if len(re.sub(r"[^0-9]", "", str(value))) < 8: # 숫자가 너무 적으면 의심
+                return "전화번호가 너무 짧습니다. 다시 확인해주세요."
+                
+    # 5. 이메일 검증 (email)
+    if "email" in new_fields:
+        value = new_fields["email"]
+        # 기본적인 이메일 정규식
+        if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", str(value)):
+            return "이메일 형식이 올바르지 않습니다. (예: user@example.com)"
+
+    # 검증 통과
+    return None
+
 async def process_message(
     db: AsyncSession,
     contract,
@@ -677,31 +716,11 @@ async def process_message(
     new_chat_history = contract.chat_history.copy() if isinstance(contract.chat_history, list) else []
 
     # ✅ 1) 다음 질문 찾기
-    current_item, current_index = find_next_question(content)
+    current_item, _ = find_next_question(content)
     current_bot_question = current_item["question"] if current_item else None    
     current_field_id = current_item["field_id"] if current_item else None # (나중에 사용)
     
-    
-    '''# ✅ 2) 아무 입력 없으면 "시작/재개"
-    if not message.strip():
-        if current_item:
-            return schemas.ChatResponse(
-                reply=current_item["question"],
-                updated_field=None,
-                is_finished=False,
-                full_contract_data=content,
-                chat_history=new_chat_history
-            )
-        else:
-            return schemas.ChatResponse(
-                reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
-                updated_field=None,
-                is_finished=True,
-                full_contract_data=content,
-                chat_history=new_chat_history
-            )'''
-    if not message.strip() or message.strip() == "string":
-        
+    if not message.strip() or message.strip() == "string": 
         user_has_spoken = any(msg.get("sender") == "user" for msg in new_chat_history)
 
         # [케이스 A] 사용자가 아직 말을 안 함 (완전 처음) -> 질문만 던짐 (스킵 X)
@@ -827,6 +846,26 @@ async def process_message(
     
     # AI가 추출한 데이터 적용
     new_fields = ai_result.get("filled_fields", {})
+    
+    #--------------------추가--------------------
+    # 데이터 세탁 (Sanitization)
+    for k, v in new_fields.items():
+        if isinstance(v, str): new_fields[k] = v.strip()
+        
+    validation_error = validate_fields(new_fields)
+    if validation_error:
+        error_reply = f"{validation_error}\n다시 입력해 주세요.\n\n(질문: {current_bot_question})"
+        # 검증 실패 시: 에러 메시지를 봇이 말하게 하고, 저장은 하지 않음
+        new_chat_history.append({"sender": "bot", "message": error_reply})
+        
+        return schemas.ChatResponse(
+            reply=validation_error, # "영문으로 입력해주세요" 등의 메시지 반환
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=content, # 잘못된 데이터는 저장되지 않은 원본 반환
+            chat_history=new_chat_history
+        )
+    
     content.update(new_fields)
     
     # (중요: skip_n 로직은 삭제됨 - filled_fields가 처리함)
@@ -836,7 +875,7 @@ async def process_message(
         _, idx = find_next_question(content) 
         if idx < len(CONTRACT_SCENARIO):
             # 다음 질문을 "__SKIPPED__"로 강제 마킹하여 채움
-            content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+            content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
     
     # 재질문(clarify) 처리
     if ai_result.get("status") == "clarify":
@@ -852,79 +891,7 @@ async def process_message(
             full_contract_data=content,
             chat_history=new_chat_history
         )
-    
-    '''
-    
-    # ✅ 3) RAG 여부 판단
-    tips, score = await find_top_relevant_tips(message)
-    is_legal_question = score >= SIMILARITY_THRESHOLD
-
-    if is_legal_question:
-        rag = await get_rag_response(message, tips)
-
-        new_chat_history.append({"sender": "user", "message": message})
-        new_chat_history.append({"sender": "bot", "message": rag})
-
-        follow = (
-            f"\n\n이어서 진행합니다.\n{current_item['question']}"
-            if current_item else "\n\n계약서 작성을 모두 완료했습니다."
-        )
-
-        return schemas.ChatResponse(
-            reply=rag + follow,
-            updated_field=None,
-            is_finished=(current_item is None),
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-
-    # ✅ 4) 폼 답변 처리
-    if not current_item:
-        return schemas.ChatResponse(
-            reply="모든 항목이 이미 채워졌습니다!",
-            updated_field=None,
-            is_finished=True,
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-    
-    new_chat_history.append({"sender": "bot", "message": current_bot_question})
-    new_chat_history.append({"sender": "user", "message": message})
-
-    # 실제 필드 처리
-    ai = await get_smart_extraction(
-        client,
-        current_item["field_id"],
-        message,
-        current_item["question"]
-    )
-
-    # ✅ AI가 반환한 filled_fields 적용
-    new_fields = ai.get("filled_fields", {})
-    content.update(new_fields)
-
-    skip_n = ai.get("skip_next_n_questions", 0)
-    for _ in range(skip_n):
-        # ❗️ content가 이미 update된 상태에서 find_next_question을 호출
-        _, idx = find_next_question(content) 
-        if idx < len(CONTRACT_SCENARIO):
-            # 다음 질문을 "__SKIPPED__"로 강제 마킹하여 채움
-            content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
-    
-    # ✅ follow-up 질문이 있으면 그대로 반환
-    if ai.get("status") == "clarify":
-        follow_up_q = ai["follow_up_question"]
-        new_chat_history.append({"sender": "bot", "message": follow_up_q})
-        return schemas.ChatResponse(
-            reply=ai["follow_up_question"],
-            updated_field=None,
-            is_finished=False,
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-
-        '''
-    
+     
     # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
@@ -979,10 +946,18 @@ async def render_docx(contract):
 
     doc = DocxTemplate(template_path)
     context = contract.content or {}
-    clean_context = {
+    '''clean_context = {
         key: value 
         for key, value in context.items() 
-        if value != "__SKIPPED__"
-    }
-    doc.render(clean_context)
+        if value != ""
+    }'''
+    render_context = {}
+    for key, value in context.items():
+        if value is True:
+            render_context[key] = "⊠" # Wingdings 체크박스 (Checked)
+        elif value is False:
+            render_context[key] = "☐" # Wingdings 체크박스 (Unchecked)
+        else:
+            render_context[key] = value
+    doc.render(render_context)
     return doc
