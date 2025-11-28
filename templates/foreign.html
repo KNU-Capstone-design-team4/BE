@@ -19,8 +19,8 @@
     <h3>1. 인적 사항 (Applicant Information)</h3>
 
     <p>
-        성명(Name In Full): 성(Surname) <input type="text" name="surname">  
-        명(Given Names) <input type="text" name="given_names">
+        성명(Name In Full): 성(Surname) <input type="text" id="surname" name="surname">  
+        명(Given Names) <input type="text" id="given_names" name="given_names">
     </p>
 
     <p>
@@ -30,8 +30,8 @@
         <input type="text" name="birth_dd" style="width:40px;"> 일  
         <br>
         성별(Sex):  
-        <label><input type="radio" name="sex_m_check" value="M"> 남(M)</label>  
-        <label><input type="radio" name="sex_f_check" value="F"> 여(F)</label>
+        <label><input type="checkbox" name="sex_m_check" value="M"> 남(M)</label>  
+        <label><input type="checkbox" name="sex_f_check" value="F"> 여(F)</label>
     </p>
 
     <p>
@@ -61,7 +61,7 @@
 
     <p>
         전자우편(E-Mail): <input type="email" name="email"><br>
-        직업(Occupation): <input type="text" name="occupation_type">
+        직업(Occupation): <input type="text" name="occupation">
     </p>
 
     <h3>2. 재학 여부 (School Status)</h3>
@@ -84,15 +84,18 @@
     <h3>3. 근무처 (Workplace)</h3>
 
     <p>
-        <strong>원 근무처(Current Workplace)</strong><br>
+        원 근무처(Current Workplace)<input type="text" name="current_workspace"><br>
         사업자등록번호: <input type="text" name="cur_business_regis_num"><br>
-        전화 번호: <input type="text" name="current_work_phone">
+        전화 번호: <input type="text" name="cur_phone">
     </p>
 
     <p>
-        <strong>예정 근무처(New Workplace)</strong><br>
+        예정 근무처(New Workplace)<input type="text" name="new_workplace"><br>
         사업자등록번호: <input type="text" name="new_business_regis_num"><br>
-        전화 번호: <input type="text" name="new_work_phone">
+        전화 번호: <input type="text" name="new_phone">
+    </p>
+    <p>
+        직업(Occupation): <input type="text" name="occupation"><br>
     </p>
 
     <h3>4. 기타 정보</h3>
@@ -109,8 +112,9 @@
         신청일(Date of Application):  
         <input type="text" name="apply_date">
         <br><br>
-        신청인 서명 또는 인(Signature/Seal):  
-        <input type="text" name="applicant_signature">
+        신청인 서명 또는 인(Signature/Seal): 
+        <!-- 합쳐서 보여줄 input -->
+        <input type="text" id="full_name_1" name="name">      
     </p>
 
     <h3>6. 행정정보 공동이용 동의서 (Consent for Sharing Administrative Information)</h3>
@@ -125,9 +129,23 @@
     </p>
 
     <p>
-        신청인: <input type="text" name="signature_applicant"> (서명)<br>
+        신청인: 
+        <input type="text" id="full_name_2" name="name"> (서명)<br>
         신청인의 배우자: <input type="text" name="signature_spouse"> (서명)<br>
         신청인의 부 또는 모: <input type="text" name="signature_parent"> (서명)
     </p>
+    <script>
+        function updateFullName() {
+            const surname = document.getElementById('surname').value;
+            const given = document.getElementById('given_names').value;
 
+            document.getElementById('full_name_1').value = `${surname} ${given}`.trim();
+            document.getElementById('full_name_2').value = `${surname} ${given}`.trim();
+        }
+
+        document.getElementById('surname').addEventListener('input', updateFullName);
+        document.getElementById('given_names').addEventListener('input', updateFullName);
+
+        updateFullName();
+    </script>
 </form>
