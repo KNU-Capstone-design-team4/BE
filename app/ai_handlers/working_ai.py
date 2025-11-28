@@ -87,19 +87,22 @@ TIP_LIST = [
 ]
 
 def calculate_work_hours(start_str: str, end_str: str) -> float:
-    """HH:MM 형식의 문자열 두 개를 받아 근무 시간을 계산합니다."""
     try:
+        # 혹시 모를 공백 제거
+        start_str = start_str.strip()
+        end_str = end_str.strip()
+        
         fmt = "%H:%M"
         t_start = datetime.datetime.strptime(start_str, fmt)
         t_end = datetime.datetime.strptime(end_str, fmt)
         
-        # 종료 시간이 시작 시간보다 빠르면 다음날로 간주 (예: 22:00 ~ 02:00)
         if t_end < t_start:
             t_end += datetime.timedelta(days=1)
             
         diff = t_end - t_start
-        return diff.total_seconds() / 3600 # 시간 단위 반환
-    except:
+        return diff.total_seconds() / 3600
+    except Exception as e:
+        print(f"Date Calc Error: {e}") # 에러 로그 출력
         return 0.0
 
 # ⭐️ 1. 개선된 Few-Shot 프롬프트 템플릿 정의
@@ -181,7 +184,7 @@ async def get_rag_response(question: str, relevant_tips: str) -> str:
 당신은 근로기준 전문가입니다.
 주어진 팁만을 기반으로 답변하세요.
 만약 질문에 대한 답변이 [참고 자료]에 명확히 나와있지 않다면,
-       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보(예: 2023년 기준, 육아휴직 등)가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
+       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
 
 --- 참고 자료 ---
 {relevant_tips}
@@ -309,6 +312,16 @@ async def get_smart_extraction(
         question: "{question}"
         user_message: "09:00"
         AI: {{"status": "success", "filled_fields": {{"{field_id}": "09:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 5: '2시' -> 모호함 -> **되묻기**]
+        question: "{question}"
+        user_message: "2시에 시작해요"
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "말씀하신 2시가 '오후 2시(14:00)'인가요, 아니면 '새벽 2시(02:00)'인가요?"}}
+
+        [예시 6: '10시' -> 모호함 -> **되묻기**]
+        question: "{question}"
+        user_message: "10시요"
+        AI: {{"status": "clarify", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": "오전 10시인가요, 밤 10시(22:00)인가요?"}}
         """
         
     # [상여금] 예시
@@ -348,7 +361,7 @@ async def get_smart_extraction(
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
-    elif field_id == "bonus_amout": # ⭐️ 새로 추가된 필드
+    elif field_id == "bonus_amount": # ⭐️ 새로 추가된 필드
         specific_examples = f"""
         [예시 1: 금액 입력]
         question: "{question}"
@@ -571,6 +584,11 @@ def find_next_question(
         if field_id == "bonus":
             if "is_bonus_paid_yes_o" in current_content or "is_bonus_paid_no_o" in current_content:
                 continue # 템플릿에 들어갈 O/X 표시가 있으면 완료된 것임
+
+        if field_id == "bonus_amount":
+            # 상여금 없음(No)에 체크되어 있다면 -> 금액 질문 스킵
+            if current_content.get("is_bonus_paid_no_o") == "O":
+                continue
             
         # 3. 기타 특수 필드 체크 (이전 로직을 is_field_completed의 논리로 변경)
         #    'is_allowance_paid' 대신 'allowance' 필드 ID를 사용해야 합니다.
@@ -786,48 +804,7 @@ async def process_message(
         
     if "employee_name" in new_fields:
                 content["employee_name_sign"] = new_fields["employee_name"]
-    # =========================================================
-    # -----------------------------------------------------------------
-    # if current_field_id == "rest_time":
-    #     rest_val = content.get("rest_time", "")
-    #     # 값이 없거나 부정적인 표현이면 체크
-    #     if str(rest_val).strip() in ["", "0", "없음", "없어요", "안해요"]:
-    #         start_t = content.get("start_time")
-    #         end_t = content.get("end_time")
-            
-    #         if start_t and end_t:
-    #             total_hours = calculate_work_hours(start_t, end_t)
-                
-    #             # 4시간 이상 근무인데 휴게시간이 없으면 경고
-    #             if total_hours >= 4:
-    #                 # 🚀 [수정됨] 느린 AI 검색(RAG) 제거 -> 고정 멘트로 즉시 출력
-    #                 warning_msg = (
-    #                     f"하루 근로시간이 {total_hours}시간인 경우, 근로기준법상 휴게시간을 필수로 부여해야 합니다.\n"
-    #                     f"(4시간 근무 시 30분 이상, 8시간 근무 시 1시간 이상)"
-    #                 )
-    #                 new_chat_history.append({"sender": "bot", "message": warning_msg})
 
-    # # (2) 최저시급 체크
-    # if current_field_id == "salary_amount":
-    #     try:
-    #         raw_salary = content.get("salary_amount", "0")
-    #         # 쉼표, 원 제거
-    #         salary_str = str(raw_salary).replace(",", "").replace("원", "")
-            
-    #         if salary_str.isdigit():
-    #             hourly_wage = int(salary_str)
-    #             MINIMUM_WAGE_2025 = 10030
-                
-    #             # 입력값이 0보다 크고 최저시급보다 작으면 경고
-    #             if 0 < hourly_wage < MINIMUM_WAGE_2025:
-    #                 # 🚀 [수정됨] 느린 AI 검색(RAG) 제거 -> 고정 멘트로 즉시 출력
-    #                 msg = (
-    #                     f"입력하신 시급({hourly_wage:,}원)은 2025년 최저시급({MINIMUM_WAGE_2025:,}원)보다 낮습니다.\n"
-    #                     f"최저임금법 위반 시 3년 이하의 징역 또는 2천만원 이하의 벌금이 부과될 수 있습니다."
-    #                 )
-    #                 new_chat_history.append({"sender": "bot", "message": msg})
-    #     except:
-    #         pass
      # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
 
@@ -837,18 +814,84 @@ async def process_message(
     # 'if next_item:' 블록 밖으로 이동시키거나 안전하게 처리합니다.
     #updated_key = list(new_fields.keys())[0] if new_fields else None
     updated_key = current_field_id
+
+    ################################################################
+    # 기본 답변 설정 (다음 질문이 있으면 질문, 없으면 완료 메시지)
+    final_reply = next_item["question"] if next_item else "모든 항목이 작성되었습니다."
+    
+    # -----------------------------------------------------------
+    # ✅ [2] 실시간 검증 & 메시지 합치기 (Validation)
+    # -----------------------------------------------------------
+    warning_prefix = "" # 경고 메시지를 담을 변수
+
+    # (A) 휴게시간 검증
+    if current_field_id == "rest_time":
+        rest_val = str(content.get("rest_time", "")).strip()
+        negative_keywords = ["", "0", "0분", "없음", "없어요", "안해요", "없습니다", "아니요", "없어"]
         
+        # 입력값이 없거나 부정적인 표현인 경우
+        if rest_val in negative_keywords or rest_val == "None":
+            start_t = content.get("start_time")
+            end_t = content.get("end_time")
+            
+            if start_t and end_t:
+                try:
+                    total_hours = calculate_work_hours(start_t, end_t)
+                    if total_hours >= 4:
+                        # ⚠️ 경고 메시지 작성
+                        warning_prefix = (
+                            f"하루 근로시간이 총 {total_hours}시간입니다.\n"
+                            f"근로시간이 4시간일 경우 30분 이상, 8시간일 경우 1시간 이상의 휴게시간을 근로시간 도중에 부여해야 합니다.\n\n"
+                        )
+                except:
+                    pass
+
+    # (B) 최저시급 검증
+    if current_field_id == "salary_amount":
+        try:
+            raw_salary = content.get("salary_amount", "0")
+            # 쉼표, 원, 공백 제거
+            salary_str = str(raw_salary).replace(",", "").replace("원", "").strip()
+            
+            if salary_str.isdigit():
+                hourly_wage = int(salary_str)
+                MINIMUM_WAGE_2025 = 10030
+                
+                if 0 < hourly_wage < MINIMUM_WAGE_2025:
+                    # ⚠️ 경고 메시지 작성
+                    warning_prefix = (
+                        f"입력하신 금액({hourly_wage:,}원)은 2025년 최저시급({MINIMUM_WAGE_2025:,}원)보다 낮습니다.\n"
+                        f"최저임금법 위반 소지가 있으니 다시 확인 부탁드립니다.\n\n"
+                    )
+        except:
+            pass
+            
+    # -----------------------------------------------------------
+    # ✅ [3] 최종 메시지 조합 (경고 + 다음질문)
+    # -----------------------------------------------------------
+    # 만약 경고가 있으면 "경고 메시지 + (줄바꿈) + 원래 하려던 질문" 형태로 합칩니다.
+    if warning_prefix:
+        final_reply = warning_prefix + final_reply
+
+    # -----------------------------------------------------------
+    # ✅ [4] 채팅 기록 저장 및 반환
+    # -----------------------------------------------------------
+    
+    # 봇의 최종 답변(경고 포함)을 히스토리에 저장
+    new_chat_history.append({"sender": "bot", "message": final_reply})
+    
+    updated_value = new_fields.get(updated_key, "")
 
     if next_item:
         return schemas.ChatResponse(
-            reply=next_item["question"],
+            reply=final_reply,
             updated_field=[{
                 "field_id": updated_key,
-                "value": new_fields[updated_key]
+                "value": str(updated_value) # ⭐️ .get()을 사용했으므로 에러가 나지 않음
             }] if updated_key else [],            
             is_finished=False,
             full_contract_data=content,
-            chat_history=new_chat_history # ⬅️ 추가
+            chat_history=new_chat_history
         )
 
     else:
@@ -856,13 +899,12 @@ async def process_message(
             reply="모든 항목이 작성되었습니다.",
             updated_field=[{
                 "field_id": updated_key,
-                "value": new_fields[updated_key]
+                "value": str(updated_value) # ⭐️ 여기도 수정
             }] if updated_key else None,
             is_finished=True,
             full_contract_data=content,
-            chat_history=new_chat_history # ⬅️ 추가
+            chat_history=new_chat_history
         )
-
 
 
 # -----------------------------------------------------------

@@ -164,21 +164,26 @@ async def find_top_relevant_tips(question: str, top_n=3):
     return tips_str, top_score
 
 async def get_rag_response(question: str, relevant_tips: str) -> str:
-        system_prompt = f"""
-        당신은 부동산 등기 전문가입니다.
-        주어진 팁만을 기반으로 답변하세요.
-        
+    today = datetime.date.today()
+    current_date_str = today.strftime('%Y년 %m월 %d일')
+    system_prompt = f"""
+오늘은 {current_date_str}입니다.
+당신은 근로기준 전문가입니다.
+주어진 팁만을 기반으로 답변하세요.
+만약 질문에 대한 답변이 [참고 자료]에 명확히 나와있지 않다면,
+       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
+
         --- 참고 자료 ---
         {relevant_tips}
         -----------------
-        """
-        resp = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": system_prompt},
+    """
+    resp = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": system_prompt},
                       {"role": "user", "content": question}],
             temperature=0
         )
-        return resp.choices[0].message.content.strip()
+    return resp.choices[0].message.content.strip()
 
 async def get_building_info(sigungu_cd, bjdong_cd, bun, ji):
     params = {
