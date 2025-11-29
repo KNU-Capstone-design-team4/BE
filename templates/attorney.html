@@ -1,0 +1,72 @@
+<h2>위 임 장</h2>
+
+    <form>
+
+        <table border="1">
+            <tr>
+                <th>부동산의 표시</th>
+                <td>
+                    <textarea name="property_description_text"></textarea>
+                </td>
+            </tr>
+
+            <tr>
+                <th>등기원인과 그 연월일</th>
+                <td>
+                    <input type="text" name="reg_cause_date">
+                    <input type="text" name="reg_cause_type">
+                </td>
+            </tr>
+
+            <tr>
+                <th>등기의 목적</th>
+                <td>
+                    <input type="text" name="reg_purpose">
+                </td>
+            </tr>
+
+            <tr>
+                <th>이전할 지분</th>
+                <td>
+                    <input type="text" name="transfer_share">
+                </td>
+            </tr>
+
+            <tr>
+                <th>대리인</th>
+                <td>
+                    성명: <input type="text" name="agent_name"><br>
+                    주소: <input type="text" name="agent_address">
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2">
+                    <p>
+                        위 사람을 대리인으로 정하고 위 부동산 등기신청 및 취하에 관한 모든 권한을 위임한다.<br>
+                        또한 복대리인 선임을 허락한다.
+                    </p>
+                    <p>
+                        위임일자: <input type="text" name="delegation_date">
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
+                <th rowspan="2">위임인</th>
+                <td>
+                    <strong>(등기의무자/매도인)</strong><br>
+                    성명: <input type="text" name="delegator_1_name"><br>
+                    주소: <input type="text" name="delegator_1_address">
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <strong>(등기권리자/매수인)</strong><br>
+                    성명: <input type="text" name="delegator_2_name"><br>
+                    주소: <input type="text" name="delegator_2_address">
+                </td>
+            </tr>
+        </table>
+    </form>
