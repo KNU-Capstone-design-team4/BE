@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>통합신청서(신고서)</title>
+    <style>
+        /* 기본 페이지 스타일 */
+        body {
+            font-family: "Malgun Gothic", "맑은 고딕", sans-serif;
+            background-color: #f0f0f0;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        /* 양식 컨테이너 */
+        .form-container {
+            width: 850px;
+            margin: 30px auto;
+            padding: 40px;
+            background-color: #ffffff;
+            border: 1px solid #000;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 헤더 (문서 제목) */
+        .form-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .form-header .sub-title {
+            font-size: 18px;
+            margin-top: 5px;
+        }
+        .form-header .instructions {
+            font-size: 12px;
+            color: #555;
+            text-align: right;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+        }
+
+    
+        /* 우측 상단 사진 상자 */
+        .photo-box {
+            float: right;
+            width: 140px;
+            height: 180px;
+            border: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            margin-left: 20px;
+        }
+        .photo-box .photo-inner {
+            width: 105px; /* 35mm * 3 */
+            height: 135px; /* 45mm * 3 */
+            border: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        /* 폼 섹션 클리어 */
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        /* 섹션 제목 */
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            border-left: 5px solid #000;
+            padding-left: 8px;
+        }
+
+        /* 기본 폼 테이블 (개인정보 등) */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-top: 2px solid #000;
+            margin-bottom: 20px;
+        }
+        .info-table th, .info-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+        .info-table th {
+            background-color: #f4f4f4;
+            text-align: center;
+            font-weight: bold;
+            width: 18%;
+        }
+        .info-table td {
+            background-color: #ffffff;
+        }
+        
+        /* 테이블 내 입력 필드 스타일 */
+        .info-table input[type="text"],
+        .info-table input[type="email"] {
+            width: 95%;
+            padding: 4px;
+            border: 1px solid #aaa;
+            font-size: 13px;
+        }
+        .info-table .short-input {
+            width: 60px;
+        }
+        .info-table .med-input {
+            width: 120px;
+        }
+        .info-table label {
+            margin-right: 10px;
+        }
+        .info-table input[type="checkbox"],
+        .info-table input[type="radio"] {
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        /* 신청/신고선택 그리드 */
+        .checkbox-grid {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+        }
+        .checkbox-grid td {
+            border: 1px solid #000;
+            padding: 5px 8px;
+            font-size: 12px;
+            width: 50%;
+        }
+        .checkbox-grid label {
+            font-size: 13px;
+        }
+        .checkbox-grid .note {
+            font-size: 11px;
+            color: #444;
+            padding-left: 20px;
+        }
+
+        /* 중첩 테이블 (근무처) */
+        .nested-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .nested-table td {
+            border: 1px solid #999;
+            padding: 4px;
+            text-align: center;
+        }
+        .nested-table .header {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+        .nested-table input[type="text"] {
+            width: 90%;
+        }
+        
+        /* 동의서 섹션 */
+        .consent-section {
+            border: 1px solid #aaa;
+            padding: 15px;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+        }
+        .consent-section h3 {
+            text-align: center;
+            font-size: 16px;
+            margin-top: 0;
+        }
+        .consent-section p {
+            font-size: 12px;
+            text-align: justify;
+        }
+        .consent-signatures {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .consent-signatures span {
+            margin: 0 15px;
+        }
+        
+        /* 최종 제출/서명 */
+        .submission-section {
+            margin-top: 25px;
+            text-align: center;
+            font-size: 15px;
+        }
+        
+        /* 공용란 */
+        .official-use {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .official-use th, .official-use td {
+            border: 1px solid #000;
+            padding: 5px;
+            font-size: 12px;
+            text-align: center;
+            height: 30px;
+        }
+        .official-use th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+        
+        /* 하단 수수료 */
+        .footer-note {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="form-container">
+        <header class="form-header">
+            <div class="instructions">출입국관리법 시행규칙 [별지 제34호서식] <개정 2022. 4. 12.></div>
+            <h1>통합신청서(신고서)</h1>
+            <div class="sub-title">APPLICATION FORM (REPORT FORM)</div>
+            <p class="instructions" style="text-align: center; border: none; padding: 0; margin-top: 10px;">※ 신청서는 한글 또는 영문으로 작성하시기 바랍니다. (Please complete this form in Korean or English.)</p>
+        </header>
+
+        <section class="clearfix">
+            <div class="photo-box">
+                PHOTO
+                <div class="photo-inner">여권용 사진<br>(35mm×45mm)</div>
+                * 촬영일부터 6개월이<br>지나지 않아야 함<br>
+                외국인 등록 및 등록증 재발급 시에만 사진 부착<br>
+                Photo only for Foreign Resident<br>Registration (Reissued)
+            </div>
+
+            <div style="width: calc(100% - 170px);"> <h2 class="section-title">☐ 신청/신고선택 SELECT APPLICATION/REPORT</h2>
+                <table class="checkbox-grid">
+                    <tr>
+                        <td>
+                            <label><input type="checkbox" name="reg"> 외국인 등록</label>
+                            <div class="note">FOREIGN RESIDENT REGISTRATION</div>
+                        </td>
+                        <td>
+                            <label><input type="checkbox" name="activity"> 체류자격외 활동허가 (희망 자격: <input type="text" class="med-input">)</label>
+                            <div class="note">ENGAGE IN ACTIVITIES NOT COVERED BY THE STATUS OF SOJOURN</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label><input type="checkbox" name="reissue"> 등록증 재발급</label>
+                            <div class="note">REISSUANCE OF REGISTRATION CARD</div>
+                        </td>
+                        <td>
+                            <label><input type="checkbox" name="workplace_change"> 근무처변경·추가허가/신고</label>
+                            <div class="note">CHANGE OR ADDITION OF WORKPLACE</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label><input type="checkbox" name="ext"> 체류기간 연장허가</label>
+                            <div class="note">EXTENSION OF SOJOURN PERIOD</div>
+                        </td>
+                        <td>
+                            <label><input type="checkbox" name="residence_change"> 체류지 변경신고</label>
+                            <div class="note">ALTERATION OF RESIDENCE</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label><input type="checkbox" name="status_change"> 체류자격 변경허가 (희망자격: <input type="text" class="med-input"> )</label>
+                            <div class="note">CHANGE OF STATUS OF SOJOURN</div>
+                        </td>
+                        <td>
+                            <label><input type="checkbox" name="reentry"> 재입국허가 (☐단수 ☐복수)</label>
+                            <div class="note">REENTRY PERMIT (SINGLE, MULTIPLE)</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label><input type="checkbox" name="status_grant"> 체류자격 부여 (희망자격: <input type="text" class="med-input"> )</label>
+                            <div class="note">GRANTING STATUS OF SOJOURN</div>
+                        </td>
+                        <td>
+                            <label><input type="checkbox" name="info_change"> 등록사항 변경신고</label>
+                            <div class="note">CHANGE OF INFORMATION ON REGISTRATION</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <table class="info-table" style="border-top: 1px solid #000; margin-top: 20px;">
+            <tbody>
+                <tr>
+                    <th>성명<br>Name In Full</th>
+                    <td colspan="5">
+                        성 Surname <input type="text" style="width: 30%;">
+                        명 Given names <input type="text" style="width: 50%;">
+                    </td>
+                </tr>
+                <tr>
+                    <th>생년월일<br>Date of Birth</th>
+                    <td>
+                        <input type="text" class="short-input"> 년 yyyy
+                        <input type="text" class="short-input" style="width: 40px;"> 월 mm
+                        <input type="text" class="short-input" style="width: 40px;"> 일 dd
+                    </td>
+                    <th>성별<br>Sex</th>
+                    <td>
+                        <label><input type="radio" name="sex"> 남 M</label>
+                        <label><input type="radio" name="sex"> 여 F</label>
+                    </td>
+                    <th rowspan="2">외국인등록번호<br>Foreign Resident<br>Registration No.</th>
+                    <td rowspan="2"><input type="text" style="width: 90%;"></td>
+                </tr>
+                <tr>
+                    <th>여권 번호<br>Passport No.</th>
+                    <td><input type="text"></td>
+                    <th>국적<br>Nationality</th>
+                    <td><input type="text"></td>
+                </tr>
+                <tr>
+                    <th>여권 발급일자<br>Passport Issue Date</th>
+                    <td><input type="text" class="med-input"></td>
+                    <th>여권 유효기간<br>Passport Expiry Date</th>
+                    <td colspan="3"><input type="text" class="med-input"></td>
+                </tr>
+                <tr>
+                    <th>대한민국 내 주소<br>Address In Korea</th>
+                    <td colspan="3"><input type="text"></td>
+                    <th>전화 번호<br>Phone No.</th>
+                    <td><input type="text"></td>
+                </tr>
+                <tr>
+                    <th>본국 주소<br>Address In Home Country</th>
+                    <td colspan="3"><input type="text"></td>
+                    <th>휴대 전화<br>Cell phone No.</th>
+                    <td><input type="text"></td>
+                </tr>
+                <tr>
+                    <th>전자우편 E-Mail</th>
+                    <td colspan="3"><input type="text" type="email"></td>
+                    <th>직업<br>Occupation</th>
+                    <td><input type="text"></td>
+                </tr>
+                <tr>
+                    <th>재학여부<br>School Status</th>
+                    <td colspan="5">
+                        <label><input type="checkbox" name="school"> 미취학</label>
+                        <label><input type="checkbox" name="school"> 초</label>
+                        <label><input type="checkbox" name="school"> 중</label>
+                        <label><input type="checkbox" name="school"> 고</label>
+                        학교 종류: 
+                        <label><input type="checkbox" name="school_type"> 교육청 인가</label>
+                        <label><input type="checkbox" name="school_type"> 교육청 비인가</label>
+                        <label><input type="checkbox" name="school_type"> 대안학교</label>
+                        <br>
+                        학교 이름: <input type="text" class="med-input">
+                        전화 번호: <input type="text" class="med-input">
+                    </td>
+                </tr>
+                <tr>
+                    <th>근무처<br>Workplace</th>
+                    <td colspan="5">
+                        <table class="nested-table">
+                            <tr>
+                                <td style="width: 30%; border: none;"></td>
+                                <td class="header" style="width: 35%;">원 근무처<br>Current Workplace</td>
+                                <td class="header" style="width: 35%;">예정 근무처<br>New Workplace</td>
+                            </tr>
+                            <tr>
+                                <td class="header">사업자등록번호<br>Business Registration No.</td>
+                                <td><input type="text"></td>
+                                <td><input type="text"></td>
+                            </tr>
+                            <tr>
+                                <td class="header">전화 번호<br>Phone No.</td>
+                                <td><input type="text"></td>
+                                <td><input type="text"></td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <th>연소득금액<br>AnnualIncomeAmount</th>
+                    <td><input type="text" class="med-input"> 만원(ten thousand won)</td>
+                    <th>재입국 신청 기간<br>Intended Period Of Reentry</th>
+                    <td colspan="3"><input type="text"></td>
+                </tr>
+                <tr>
+                    <th>반환용 계좌번호<br>(외국인등록 및 외국인등록증 재발급<br>신청 시에만 기재)</th>
+                    <td colspan="5"><input type="text"></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p style="font-size: 13px; margin-top: 20px;">
+            <b>신청인 제출서류</b> (담당공무원 확인사항)<br>
+            「출입국관리법 시행규칙」 별표 5의2의 체류자격별 신청구분별 첨부서류 참고<br>
+            Please refer to the attached documents for each status of stay and each application type in Annex 5-2 of the Enforcement Rule of the Immigration Act.
+        </p>
+        
+        <div class="submission-section">
+            신청일 Date of application: <input type="text" class="med-input">
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            신청인 서명 또는 인 Signature/Seal: <input type="text" style="width: 200px; border: none; border-bottom: 1px solid #000;">
+        </div>
+
+        <div class="consent-section">
+            <h3>행정정보 공동이용 동의서 (Consent for sharing of administrative information)</h3>
+            <p>본인은 이 건 업무처리와 관련하여 담당공무원이 「전자정부법」 제36조에 따른 행정정보의 공동이용을 통하여 위의 담당 공무원 확인 사항을 확인하는 것에 동의합니다. 동의하지 않는 경우에는 신청인이 직접 관련 서류를 제출해야 합니다.</p>
+            <p style="font-size: 11px; color: #444;">I, the undersigned, hereby consent to allow all documents and information required for the processing of this application to be viewed by the public servant in charge as specified in Article 36 of the Electronic Government Act. If you disagree, you are required to present all related documents in person.</p>
+            <div class="consent-signatures">
+                <span>신청인</span> <input type="text" style="width: 150px; border: none; border-bottom: 1px solid #000;"> (서명 또는 인)
+                <span>신청인의 배우자</span> <input type="text" style="width: 150px; border: none; border-bottom: 1px solid #000;"> (서명 또는 인)
+                <span>신청인의 부 또는 모</span> <input type="text" style="width: 150px; border: none; border-bottom: 1px solid #000;"> (서명 또는 인)
+            </div>
+        </div>
+
+        <h2 class="section-title" style="margin-top: 25px; border-left: none; text-align: center; font-size: 18px;">공용란 (For Official Use Only)</h2>
+        <table class="official-use">
+            <tr>
+                <th style="width: 15%;">기본 사항</th>
+                <th style="width: 15%;">최초입국일</th>
+                <td></td>
+                <th style="width: 15%;">체류자격</th>
+                <td></td>
+                <th style="width: 15%;">체류기간</th>
+                <td></td>
+            </tr>
+            <tr>
+                <th>접수 사항</th>
+                <th>접수일자</th>
+                <td></td>
+                <th>접수번호</th>
+                <td colspan="3"></td>
+            </tr>
+            <tr>
+                <th>허가(신고) 사항</th>
+                <th>허가(신고) 일자</th>
+                <td></td>
+                <th>허가번호</th>
+                <td colspan="3"></td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: left; padding-left: 10px;">체류자격 / 체류기간</td>
+                <th rowspan="2">결 재</th>
+                <th colspan="2">담당</th>
+            </tr>
+            <tr>
+                <td colspan="4" rowspan="2" style="height: 60px;"></td>
+                <th colspan="2">청(소)장</th>
+            </tr>
+            <tr>
+                <th>가/부</th>
+                <td colspan="2"></td>
+            </tr>
+        </table>
+        
+        <div class="footer-note">
+            수입인지는 뒷면에 첨부(Revenue Stamp on the Backside) / 수수료 면제(exemption) [](면제사유:)
+        </div>
+
+    </div>
+
+</body>
+</html>
