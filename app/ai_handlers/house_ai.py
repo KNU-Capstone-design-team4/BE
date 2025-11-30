@@ -33,7 +33,7 @@ CONTRACT_SCENARIO = [
 
     # --- 3. 계약 내용 (보증금 및 지급 시기) ---
     {"field_id": "deposit", "question": "보증금 총액은 얼마인가요?"}, # -> {{deposit}}
-    {"field_id": "con_dep", "question": "계약금(계약 시 지불하는 금액)은 얼마인가요?"}, # -> {{con_dep}}
+    {"field_id": "con_dep", "question": "계약금(계약 시 지불하는 금액)은 얼마인가요? 그리고 영수자(집주인)의 이름도 알려주세요"}, # -> {{con_dep}}
     
     {"field_id": "middle_payment_info", "question": "중도금이 있다면 금액과 지불 날짜를 알려주세요. (없으면 '없음'이라고 답해주세요)"}, 
     # -> AI가 {{med_dep}}, {{m_y}}, {{m_m}}, {{m_d}} 로 분리
@@ -175,7 +175,7 @@ async def get_smart_extraction(
     [규칙]
     1. `filled_fields`의 key는 템플릿 변수명과 일치해야 합니다.
     2. [날짜]는 년(y), 월(m), 일(d) 변수로 분리하여 저장해야 합니다. (예: 2024-10-25 -> _y:2024, _m:10, _d:25)
-    3. [체크박스] 전세/월세는 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    3. [체크박스] 전세/월세는 변수에 true 또는 false로 채워야 합니다.
     4. [스킵] 스킵하는 필드(예: 전세일 때 월세 관련 필드)는 빈 문자열 ""을 채워야 합니다.
     5. 사용자가 법률적 질문을 하면 `status`를 "rag_required"로 반환하세요.
     
@@ -188,7 +188,7 @@ async def get_smart_extraction(
     # [분기 1: 계약 종류] (전세 vs 월세)
     if field_id == "contract_type":
         # 전세 선택 시: 월세 관련 질문(monthly_rent_info) 1개 스킵 + 변수 비우기
-        jeonse_skip_fields = {"c_wag": "__SKIPPED__", "c_d": "__SKIPPED__", "payment": "__SKIPPED__"} 
+        jeonse_skip_fields = {"c_wag": "", "c_d": "", "payment": ""} 
         
         # 월세 선택 시: 스킵 없음
         monthly_skip_fields = {} # 월세는 다 물어봐야 함
@@ -197,12 +197,12 @@ async def get_smart_extraction(
         [예시 1: 전세 선택 (월세 질문 스킵)]
         question: "{question}"
         user_message: "전세 계약입니다."
-        AI: {{"status": "success", "filled_fields": {{"charter": "☒", "mntly": "☐", "c_wag": "__SKIPPED__", "c_d": "__SKIPPED__"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"charter": true, "mntly": false, "c_wag": "", "c_d": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 2: 월세 선택 (스킵 없음)]
         question: "{question}"
         user_message: "월세로 하려고요."
-        AI: {{"status": "success", "filled_fields": {{"charter": "☐", "mntly": "☒"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"charter": false, "mntly": true}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     # -----------------------------------------------------------
@@ -212,9 +212,9 @@ async def get_smart_extraction(
         # 대리인 없음 -> 관련 필드 3개 스킵 처리
         no_agent_fields = {
             "lessor_agn": "없음", # 제어용 값
-            "les_agn_add": "__SKIPPED__",
-            "les_agn_num": "__SKIPPED__",
-            "les_agn_name": "__SKIPPED__"
+            "les_agn_add": "",
+            "les_agn_num": "",
+            "les_agn_name": ""
         }
         # 대리인 있음 -> 단순히 "있음"만 기록하고 다음 질문으로 진행
         yes_agent_fields = {"lessor_agn": "있음"}
@@ -238,9 +238,9 @@ async def get_smart_extraction(
         # 대리인 없음 -> 관련 필드 3개 스킵 처리
         no_agent_fields = {
             "less_agn": "없음", # 제어용 값
-            "less_agn_add": "__SKIPPED__",
-            "less_agn_num": "__SKIPPED__",
-            "less_agn_name": "__SKIPPED__"
+            "less_agn_add": "",
+            "less_agn_num": "",
+            "less_agn_name": ""
         }
         # 대리인 있음
         yes_agent_fields = {"less_agn": "있음"}
@@ -256,7 +256,21 @@ async def get_smart_extraction(
         user_message: "네, 있습니다."
         AI: {{"status": "success", "filled_fields": {json.dumps(yes_agent_fields)}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
-
+    
+    # [보증금]
+    elif field_id == "deposit":
+        specific_examples = f"""
+        user_message: "백만원 입니다."
+        AI: {{"status": "success", "filled_fields": {{"deposit": "100만원", "deposit_num": "1,000,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
+    # [계약금, 영수자]
+    elif field_id == "con_dep":
+        specific_examples = f"""
+        user_message: "백만원을 홍길동에게 지급할 것 입니다."
+        AI: {{"status": "success", "filled_fields": {{"con_dep": "100만원", "con_dep_recipient": "홍길동"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
     # [복합 정보: 중도금] (금액 + 날짜 분리)
     elif field_id == "middle_payment_info":
         specific_examples = f"""
@@ -272,8 +286,20 @@ async def get_smart_extraction(
     # [복합 정보: 잔금] (금액 + 날짜 분리)
     elif field_id == "balance_payment_info":
         specific_examples = f"""
+        [예시 1: 금액과 날짜를 모두 언급한 경우]
+        question: "{question}"
         user_message: "나머지 1억은 입주하는 날인 2024년 6월 30일에 줍니다."
-        AI: {{"status": "success", "filled_fields": {{"re_dep": "100,000,000", "re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"re_dep": "100,000,000", re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 2: 금액만 언급한 경우 (날짜 재질문 유도)]
+        question: "{question}"
+        user_message: "1억 입니다."
+        AI: {{"status": "clarify", "filled_fields": {{"re_dep": "100,000,000"}}, "skip_next_n_questions": 0, "follow_up_question": "잔금지급 날짜도 알려주세요."}}
+        
+        [예시 3: 날짜만 언급한 경우 (금액 재질문 유도)]
+        question: "{question}"
+        user_message: "2024.6.30일 입니다."
+        AI: {{"status": "clarify", "filled_fields": {{"re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": "잔금 금액도 알려주세요."}}
         """
 
     # [복합 정보: 월세] (금액 + 날짜 분리)
@@ -373,7 +399,7 @@ def find_next_question(current_content: Dict[str, Any]) -> Tuple[Optional[Dict],
             continue
         if field_id == "middle_payment_info" and ("med_dep" in current_content or "m_y" in current_content):
             continue
-        if field_id == "balance_payment_info" and ("re_dep" in current_content or "re_y" in current_content):
+        if field_id == "balance_payment_info" and ("re_dep" in current_content and "re_y" in current_content):
             continue
         if field_id == "monthly_rent_info" and ("c_wag" in current_content or "payment" in current_content):
             continue
@@ -506,7 +532,8 @@ async def process_message(
     for _ in range(skip_n):
         _, idx = find_next_question(content) 
         if idx < len(CONTRACT_SCENARIO):
-            content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+            content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
+    
     
     # 재질문(clarify) 처리
     if ai_result.get("status") == "clarify":
@@ -571,11 +598,19 @@ async def render_docx(contract):
     context = contract.content or {}
     
     # '__SKIPPED__' 플래그 제거 (렌더링 시 깨짐 방지)
-    clean_context = {
+    '''clean_context = {
         key: value 
         for key, value in context.items() 
         if value != "__SKIPPED__"
-    }
+    }'''
     
-    doc.render(clean_context)
+    render_context = {}
+    for key, value in context.items():
+        if value is True:
+            render_context[key] = "⊠" # Wingdings 체크박스 (Checked)
+        elif value is False:
+            render_context[key] = "☐" # Wingdings 체크박스 (Unchecked)
+        else:
+            render_context[key] = value
+    doc.render(render_context)
     return doc
