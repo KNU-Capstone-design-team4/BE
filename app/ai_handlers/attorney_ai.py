@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import httpx
 import xml.etree.ElementTree as ET
+from urllib.parse import unquote
 
 ##행정안전부 ##배포하면 다시 발급받아야함
 REAL_JUSO_API_KEY = os.environ.get("JUSO_API_KEY", "devU01TX0FVVEgyMDI1MTEyNDAxMTcyOTExNjQ4NDk=")
@@ -132,6 +133,7 @@ TIP_LIST = [
 
 SIMILARITY_THRESHOLD = 0.6
 
+
 tip_embeddings: List[np.ndarray] = []
 tip_embeddings_lock = asyncio.Lock()
 
@@ -164,47 +166,77 @@ async def find_top_relevant_tips(question: str, top_n=3):
     return tips_str, top_score
 
 async def get_rag_response(question: str, relevant_tips: str) -> str:
-        system_prompt = f"""
-        당신은 부동산 등기 전문가입니다.
-        주어진 팁만을 기반으로 답변하세요.
-        
+    today = datetime.date.today()
+    current_date_str = today.strftime('%Y년 %m월 %d일')
+    system_prompt = f"""
+오늘은 {current_date_str}입니다.
+당신은 근로기준 전문가입니다.
+주어진 팁만을 기반으로 답변하세요.
+만약 질문에 대한 답변이 [참고 자료]에 명확히 나와있지 않다면,
+       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
+
         --- 참고 자료 ---
         {relevant_tips}
         -----------------
-        """
-        resp = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": system_prompt},
+    """
+    resp = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": system_prompt},
                       {"role": "user", "content": question}],
             temperature=0
         )
-        return resp.choices[0].message.content.strip()
+    return resp.choices[0].message.content.strip()
 
 async def get_building_info(sigungu_cd, bjdong_cd, bun, ji):
+    # 키 처리 (한 번 디코딩 시도)
+    decoded_key = unquote(BUILDING_API_KEY) 
+
     params = {
-        "serviceKey": BUILDING_API_KEY,
+        "serviceKey": decoded_key, 
         "sigunguCd": sigungu_cd,
         "bjdongCd": bjdong_cd,
         "bun": bun.zfill(4),
         "ji": ji.zfill(4),
         "numOfRows": 1,
-        "_type": "json"
+        "_type": "json" # JSON 달라고 애원해도 에러나면 XML 줍니다.
     }
+    
+    print(f"📡 [요청 파라미터]: {params}") # 1. 내가 뭘 보냈는지 확인
+
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(BUILDING_API_URL, params=params, timeout=5.0)
-            if response.status_code != 200: return None
+            response = await client.get(BUILDING_API_URL, params=params, timeout=10.0)
             
-            # JSON 파싱
-            try: data = response.json()
-            except: return None
+            # 2. 서버가 뭐라 했는지 원본 확인 (여기가 핵심!)
+            print(f"📨 [국토부 응답 원본]: {response.text}") 
+
+            if response.status_code != 200:
+                return None
+            
+            try:
+                data = response.json()
+            except json.JSONDecodeError:
+                # JSON 변환 실패 = 100% 에러 메시지(XML)가 온 것임
+                print("❌ JSON 파싱 실패! 위 [국토부 응답 원본]을 확인하세요.")
+                return None
+
+            header_code = data.get("response", {}).get("header", {}).get("resultCode")
+            if header_code != "00":
+                msg = data.get("response", {}).get("header", {}).get("resultMsg")
+                print(f"❌ API 로직 에러: {msg}")
+                return None
 
             items = data.get("response", {}).get("body", {}).get("items", {}).get("item")
-            if isinstance(items, list) and items: return items[0]
-            elif isinstance(items, dict): return items
+            
+            if isinstance(items, list) and items:
+                return items[0]
+            elif isinstance(items, dict):
+                return items
+            
             return None
+
     except Exception as e:
-        print(f"건축물대장 조회 실패: {e}")
+        print(f"❌ 예외 발생: {e}")
         return None
 
 
@@ -378,280 +410,179 @@ async def process_message(
 ) -> schemas.ChatResponse:
 
     content = contract.content or {}
-
     new_chat_history = contract.chat_history.copy() if isinstance(contract.chat_history, list) else []
     
-    # ✅ 1) 다음 질문 찾기
+    # 1. 다음 질문 찾기
     current_item, current_index = find_next_question(content)
-    
-    # 이 턴(Turn)의 봇 질문을 미리 저장해둡니다. (폼 답변 시 사용)
     current_bot_question = current_item["question"] if current_item else None
     current_field_id = current_item["field_id"] if current_item else None
     
-    # ✅ 2) 아무 입력 없으면 "시작/재개"
+    # 2. 빈 입력 / 초기 진입 처리
     if not message.strip() or message.strip() == "string":
-        
         user_has_spoken = any(msg.get("sender") == "user" for msg in new_chat_history)
-
-        # [케이스 A] 사용자가 아직 말을 안 함 (완전 처음) -> 질문만 던짐 (스킵 X)
         if not user_has_spoken:
             if current_item:
                 return schemas.ChatResponse(
-                    reply=current_item["question"],
-                    updated_field=None,
-                    is_finished=False,
-                    full_contract_data=content,
-                    chat_history=new_chat_history
+                    reply=current_item["question"], updated_field=None, is_finished=False,
+                    full_contract_data=content, chat_history=new_chat_history
                 )
-        
-        # [케이스 B] 이미 대화 중임 + 엔터 입력 -> 현재 질문 스킵 (빈 값 저장)
         if current_item:
-            # 1. 현재 질문을 빈 값("")으로 저장
-            field_id = current_item["field_id"]
-            content[field_id] = "" 
-            
-            # 2. 다음 질문 찾기
+            content[current_item["field_id"]] = ""
             next_item, _ = find_next_question(content)
-            
-            # 3. 스킵 안내 메시지 생성
             reply_text = f"(건너뜁니다)\n{next_item['question']}" if next_item else "모든 항목이 작성되었습니다."
-            is_finished = (next_item is None)
-            
-            # 스킵했다는 기록도 채팅에 남기는 것이 좋습니다 (선택 사항)
-            # new_chat_history.append({"sender": "user", "message": "(건너뛰기)"})
-            # new_chat_history.append({"sender": "bot", "message": reply_text})
+            return schemas.ChatResponse(reply=reply_text, updated_field=[{"field_id": current_item["field_id"], "value": ""}], is_finished=(next_item is None), full_contract_data=content, chat_history=new_chat_history)
 
-            return schemas.ChatResponse(
-                reply=reply_text,
-                updated_field=[{"field_id": field_id, "value": ""}],
-                is_finished=is_finished,
-                full_contract_data=content,
-                chat_history=new_chat_history
-            )
-        else:
-            # 이미 완료된 상태
-            return schemas.ChatResponse(
-                reply="모든 항목이 작성되었습니다! 추가 질문이 있나요?",
-                updated_field=None,
-                is_finished=True,
-                full_contract_data=content,
-                chat_history=new_chat_history
-            )
-
-    # 공통 채팅 기록 저장 (봇 질문이 있었을 때만 저장)
+    # 3. 채팅 기록 저장
     if current_bot_question:
         new_chat_history.append({"sender": "bot", "message": current_bot_question})
-    
     new_chat_history.append({"sender": "user", "message": message})
 
+    # --------------------------------------------------------------------------
+    # ⭐️ [1순위] 주소 확인 단계 (임시 주소가 있을 때만 '네/아니요' 체크)
+    # --------------------------------------------------------------------------
+    temp_text = content.get("temp_property_text")
+    if temp_text and current_field_id == "property_description_text":
+        positive_answers = ["네", "예", "맞아요", "맞습니다", "응", "ㅇㅇ", "yes", "ok"]
+        negative_answers = ["아니요", "아니", "ㄴㄴ", "no", "놉", "틀렸어", "틀립니다"]
+        msg_clean = message.strip().replace(".", "").replace("!", "")
 
-    if current_item and current_item["field_id"] == "property_description_text":
-         
-         temp_text = content.get("temp_property_text")
-         positive_answers = ["네", "예", "맞아요", "맞습니다", "응", "ㅇㅇ", "yes", "ok"]
-         negative_answers = ["아니요", "아니", "ㄴㄴ", "no", "놉", "틀렸어", "틀립니다"]
-         msg_clean = message.strip().replace(".", "").replace("!", "")
+        if any(ans == msg_clean or msg_clean.startswith(ans) for ans in positive_answers):
+            content["property_description_text"] = temp_text
+            content.pop("temp_property_text", None)
+            
+            next_item, _ = find_next_question(content)
+            reply = next_item['question'] if next_item else "모든 항목이 작성되었습니다."
+            new_chat_history.append({"sender": "bot", "message": reply})
+            
+            return schemas.ChatResponse(reply=reply, updated_field=[{"field_id": "property_description_text", "value": temp_text}], is_finished=(next_item is None), full_contract_data=content, chat_history=new_chat_history)
+        
+        elif any(word in msg_clean for word in negative_answers):
+            reply = "네, 알겠습니다. 수정할 주소를 다시 입력해 주세요."
+            new_chat_history.append({"sender": "bot", "message": reply})
+            return schemas.ChatResponse(reply=reply, updated_field=None, is_finished=False, full_contract_data=content, chat_history=new_chat_history)
 
-         # [Case A] 확인 대기 중 (이미 한 번 조회함)
-         if temp_text:
-             # (1) "네" -> 최종 확정
-             if any(ans == msg_clean or msg_clean.startswith(ans) for ans in positive_answers):
-                 content["property_description_text"] = temp_text
-                 content.pop("temp_property_text", None)
-                 
-                 next_item, _ = find_next_question(content)
-                 if next_item:
-                     next_question = next_item['question']
-                     new_chat_history.append({"sender": "bot", "message": next_question})
-                     reply = next_question
-                 else:
-                     reply = "모든 항목이 작성되었습니다."
-                     new_chat_history.append({"sender": "bot", "message": reply})
-                 
-                 return schemas.ChatResponse(
-                     reply=reply,
-                     updated_field=[{"field_id": "property_description_text", "value": temp_text}],
-                     is_finished=(next_item is None),
-                     full_contract_data=content,
-                     chat_history=new_chat_history
-                 )
-             
-             # (2) "아니요" -> 재입력 유도
-             elif any(word in msg_clean for word in negative_answers):
-                 reply = "네, 알겠습니다. 수정할 주소를 다시 입력해 주세요."
-                 new_chat_history.append({"sender": "bot", "message": reply})
-                 return schemas.ChatResponse(reply=reply, updated_field=None, is_finished=False, full_contract_data=content, chat_history=new_chat_history)
-        
-         # ⭐️ [핵심 수정] 주소 입력 상황 (처음 입력이든, 수정 입력이든 여기로 옴)
-         # 여기서 API 조회 전에 'AI'를 먼저 부릅니다!
-         
-         # 1. AI 호출 (스마트 추출 - 말꼬리 제거용)
-         ai_result = await get_smart_extraction(client, "property_description_text", message, current_bot_question)
-         
-         # 2. AI가 정제해준 주소 가져오기 (실패 시 원본 사용)
-         clean_address = ai_result.get("filled_fields", {}).get("property_description_text", message)
-         
-         # 3. 깨끗한 주소로 API 조회
-         full_text = await get_property_text_by_address(clean_address)
-         content["temp_property_text"] = full_text
-         
-         reply = f"주소를 확인하여 부동산 정보를 불러왔습니다.\n\n[조회 결과]\n{full_text}\n\n정보가 맞다면 '네', 아니라면 정확한 주소를 다시 입력해주세요."
-         new_chat_history.append({"sender": "bot", "message": reply})
-         
-         return schemas.ChatResponse(
-             reply=reply,
-             updated_field=None,
-             is_finished=False,
-             full_contract_data=content,
-             chat_history=new_chat_history
-         )
-    ### 주소 ###
-    
-    # -----------------------------------------------------------
-    # ✅ [핵심 수정] 3) AI 추출 및 의도 파악
-    # -----------------------------------------------------------
-    
-    # (A) 폼 작성이 이미 완료된 경우 -> 무조건 RAG 모드로 설정
-    if current_item is None:
-        ai = {"status": "rag_required"} 
-        
-    # (B) 폼 작성 중인 경우 -> AI에게 추출 시도
-    else:
-        ai = await get_smart_extraction(
-            client,
-            current_field_id, # ❗️ None이 아님이 보장됨
-            message,
-            current_bot_question
-        )
-        
-    # -----------------------------------------------------------
-    # ✅ [수정] 4) RAG 여부 판단 및 처리
-    # -----------------------------------------------------------
-    # 1. AI가 "이건 질문이다"라고 했거나 (rag_required)
-    # 2. 기존 유사도 검사에서 점수가 높을 경우
-    
+    # --------------------------------------------------------------------------
+    # ⭐️ [2순위] 강력한 질문(RAG) 감지 (이게 없어서 자꾸 무시했던 것!)
+    # AI 추출보다 먼저 키워드를 검사해서 '세금, 비용' 질문이면 무조건 낚아챕니다.
+    # --------------------------------------------------------------------------
     is_rag = False
-    if ai.get("status") == "rag_required":
+    rag_keywords = ["세금", "취득세", "비용", "수수료", "얼마", "어떻게", "무엇", "기준", "가요", "나요", "프로", "퍼센트", "?"]
+    
+    # (A) 키워드 포함 여부 확인
+    if any(k in message for k in rag_keywords):
         is_rag = True
-    else:
-        # AI가 판단하지 않았더라도, 유사도가 높으면 RAG로 처리 (보조 수단)
+    
+    # (B) 키워드가 없어도 팁 리스트와 유사도가 높으면 질문으로 간주
+    if not is_rag:
         tips, score = await find_top_relevant_tips(message)
-        if score >= SIMILARITY_THRESHOLD:
+        if score >= 0.65: # 유사도 기준
             is_rag = True
 
+    # -----------------------------------------------------------
+    # [3순위] AI 데이터 추출 (질문이 아닐 때만 실행)
+    # -----------------------------------------------------------
+    ai_result = {}
+    if not is_rag:
+        if current_item is None:
+            is_rag = True # 끝났으면 무조건 RAG
+        else:
+            ai_result = await get_smart_extraction(
+                client, current_field_id, message, current_bot_question
+            )
+            # AI가 직접 "이건 질문이야(rag_required)"라고 했다면 RAG로 변경
+            if ai_result.get("status") == "rag_required":
+                is_rag = True
+
+    # -----------------------------------------------------------
+    # ✅ RAG 답변 처리 (질문인 경우)
+    # -----------------------------------------------------------
     if is_rag:
         tips, _ = await find_top_relevant_tips(message)
         rag_answer = await get_rag_response(message, tips)
-
-        # RAG 턴 기록
+        
+        # 🚨 중요: 팁에 정보가 없어도 "모른다"고 답하고, 폼 입력을 다시 유도해야 함
         new_chat_history.append({"sender": "bot", "message": rag_answer})
         
-        # 후속 멘트 처리
         if current_item:
-            follow = f"\n\n(답변이 되셨나요? 이어서 진행합니다.)\n{current_item['question']}"
-            is_finished = False
+            # 질문에 대한 답(또는 모른다는 답)을 하고, 원래 하려던 질문을 다시 붙여줍니다.
+            follow = f"\n\n(답변이 되셨나요? 계속해서 진행합니다.)\n{current_item['question']}"
+            return schemas.ChatResponse(
+                reply=rag_answer + follow, updated_field=None, is_finished=False,
+                full_contract_data=content, chat_history=new_chat_history
+            )
         else:
-            follow = "\n\n(추가로 궁금한 점이 있으신가요? 언제든 물어봐 주세요.)"
-            is_finished = True
+            return schemas.ChatResponse(
+                reply=rag_answer + "\n\n(추가로 궁금한 점이 있으신가요?)", updated_field=None, is_finished=True,
+                full_contract_data=content, chat_history=new_chat_history
+            )
 
-        return schemas.ChatResponse(
-            reply=rag_answer + follow,
-            updated_field=None,
-            is_finished=is_finished,
-            full_contract_data=content,
-            chat_history=new_chat_history
-        )
-    
-    
     # -----------------------------------------------------------
-    # ✅ 5) 폼 답변 데이터 처리 (current_item이 있을 때만 실행)
+    # ✅ 폼 데이터 저장 처리 (질문이 아닌 경우)
     # -----------------------------------------------------------
+    new_fields = ai_result.get("filled_fields", {})
+    
     if current_item:
-        # AI가 반환한 filled_fields 적용
-        new_fields = ai.get("filled_fields", {})
-
-        # [기타 급여 항목 합치기 로직]
-        field_id = current_item["field_id"]
-        if field_id.startswith("other_allowance_"):
-            item_temp = content.get(f"{field_id}_item_temp")
-            amount_temp = content.get(f"{field_id}_amount_temp")
-            
-            new_item = new_fields.get(f"{field_id}_item_temp")
-            new_amount = new_fields.get(f"{field_id}_amount_temp")
-
-            final_item = new_item if new_item else item_temp
-            final_amount = new_amount if new_amount else amount_temp
-
-            content.update(new_fields) 
-            
-            if final_item and final_amount:
-                content[field_id] = f"{final_item} {final_amount}"
-                content.pop(f"{field_id}_item_temp", None)
-                content.pop(f"{field_id}_amount_temp", None)
-                
-                ai['status'] = "success" 
-                new_fields.clear() 
-                new_fields[field_id] = content[field_id] 
-            else:
-                pass
+        # [주소 필드 특수 처리]
+        if current_field_id == "property_description_text":
+             clean_address = new_fields.get("property_description_text", message)
+             full_text = await get_property_text_by_address(clean_address)
+             
+             # API 실패 시 -> 사용자가 이상한 주소를 넣은 것이므로 안내
+             if "찾을 수 없습니다" in full_text or "오류 발생" in full_text:
+                 reply = f"입력하신 내용('{clean_address}')으로는 주소를 찾을 수 없습니다.\n정확한 도로명 주소나 지번 주소를 입력해주세요."
+                 new_chat_history.append({"sender": "bot", "message": reply})
+                 return schemas.ChatResponse(reply=reply, updated_field=None, is_finished=False, full_contract_data=content, chat_history=new_chat_history)
+             
+             # 성공 시 임시 저장
+             content["temp_property_text"] = full_text 
+             reply = f"주소를 확인하여 부동산 정보를 불러왔습니다.\n\n[조회 결과]\n{full_text}\n\n정보가 맞다면 '네', 아니라면 정확한 주소를 다시 입력해주세요."
+             new_chat_history.append({"sender": "bot", "message": reply})
+             
+             return schemas.ChatResponse(
+                 reply=reply, updated_field=None, is_finished=False,
+                 full_contract_data=content, chat_history=new_chat_history
+             )
         
+        # 일반 필드 저장
         content.update(new_fields)
 
-        # skip_next_n_questions 적용
-        skip_n = ai.get("skip_next_n_questions", 0)
+        # Skip 로직
+        skip_n = ai_result.get("skip_next_n_questions", 0)
         for _ in range(skip_n):
             _, idx = find_next_question(content)
             if idx < len(CONTRACT_SCENARIO):
                 content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
 
-        # 재질문(clarify) 처리
-        if ai.get("status") == "clarify":
-            follow_up_q = ai["follow_up_question"]
+        # 재질문 처리
+        if ai_result.get("status") == "clarify":
+            follow_up_q = ai_result.get("follow_up_question")
             new_chat_history.append({"sender": "bot", "message": follow_up_q})
-            
-            return schemas.ChatResponse(
-                reply=ai["follow_up_question"],
-                updated_field=None,
-                is_finished=False,
-                full_contract_data=content,
-                chat_history=new_chat_history
-            )
+            return schemas.ChatResponse(reply=follow_up_q, updated_field=None, is_finished=False, full_contract_data=content, chat_history=new_chat_history)
         
+        if "employee_name" in new_fields:
+             content["employee_name_sign"] = new_fields["employee_name"]
 
     # ✅ 다음 질문 찾기
     next_item, _ = find_next_question(content)
-
-    # -----------------------------------------------------------------
-    # ✅ [4. CHAT HISTORY 추가]
-    # updated_key는 폼 답변 성공 시에만 정의되므로, 
-    # 'if next_item:' 블록 밖으로 이동시키거나 안전하게 처리합니다.
     updated_key = list(new_fields.keys())[0] if new_fields else None
-    # -----------------------------------------------------------------
+    updated_value = str(new_fields.get(updated_key, "")) if updated_key else ""
     
     if next_item:
         return schemas.ChatResponse(
             reply=next_item["question"],
-            updated_field=[{
-                "field_id": updated_key,
-                "value": new_fields[updated_key]
-            }] if updated_key else [],            
+            updated_field=[{"field_id": updated_key, "value": updated_value}] if updated_key else [],            
             is_finished=False,
             full_contract_data=content,
-            chat_history=new_chat_history # ⬅️ 추가
+            chat_history=new_chat_history 
         )
-
     else:
         return schemas.ChatResponse(
             reply="모든 항목이 작성되었습니다.",
-            updated_field=[{
-                "field_id": updated_key,
-                "value": new_fields[updated_key]
-            }] if updated_key else None,
+            updated_field=[{"field_id": updated_key, "value": updated_value}] if updated_key else None,
             is_finished=True,
             full_contract_data=content,
-            chat_history=new_chat_history # ⬅️ 추가
+            chat_history=new_chat_history 
         )
-
 
 
 # -----------------------------------------------------------
