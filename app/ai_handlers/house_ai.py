@@ -33,7 +33,7 @@ CONTRACT_SCENARIO = [
 
     # --- 3. 계약 내용 (보증금 및 지급 시기) ---
     {"field_id": "deposit", "question": "보증금 총액은 얼마인가요?"}, # -> {{deposit}}
-    {"field_id": "con_dep", "question": "계약금(계약 시 지불하는 금액)은 얼마인가요?"}, # -> {{con_dep}}
+    {"field_id": "con_dep", "question": "계약금(계약 시 지불하는 금액)은 얼마인가요? 그리고 영수자(집주인)의 이름도 알려주세요"}, # -> {{con_dep}}
     
     {"field_id": "middle_payment_info", "question": "중도금이 있다면 금액과 지불 날짜를 알려주세요. (없으면 '없음'이라고 답해주세요)"}, 
     # -> AI가 {{med_dep}}, {{m_y}}, {{m_m}}, {{m_d}} 로 분리
@@ -80,12 +80,57 @@ CONTRACT_SCENARIO = [
 # -----------------------------------------------------------
 # ❗️ [TODO] 주택임대차보호법 등 관련 법령 정보를 채워주세요.
 TIP_LIST = [
-    "대리인을 포함한 계약이라면 특약사항에 대리계약임을 명시하는 것이 좋다.",
-    ""
-    # (예시)
-    # "1. (대항력) 임차인이 주택의 인도와 주민등록을 마친 때에는 그 다음 날부터 제3자에 대하여 효력이 생긴다.",
-    # "2. (우선변제권) 대항요건과 확정일자를 갖춘 임차인은 경매 시 후순위 권리자보다 우선하여 보증금을 변제받을 권리가 있다.",
-    # ...
+    "1. 등기부등본 확인: 계약 체결 전 반드시 등기부등본(등기사항전부증명서)을 발급받아 소유자와 임대인이 일치하는지 확인해야 합니다.",
+    "2. 소유자 신분증 대조: 등기부등본상의 소유자 인적사항과 임대인의 신분증이 일치하는지 확인합니다.",
+    "3. 대리인 계약 시 서류: 소유자가 아닌 대리인과 계약할 경우 위임장과 인감증명서를 반드시 요구하고 확인해야 합니다.",
+    "4. 신분증 진위 여부: 정부24 또는 ARS(1382)를 통해 임대인 신분증의 진위 여부를 확인할 수 있습니다.",
+    "5. 권리 관계 분석: 등기부등본의 '을구'를 통해 근저당권, 가압류 등 선순위 권리 관계를 파악해야 보증금을 지킬 수 있습니다.",
+    "6. 다가구 주택 선순위 보증금: 다가구 주택의 경우, 나보다 먼저 입주한 다른 세입자들의 보증금 총액을 확인해야 합니다.",
+    "7. 건축물대장 확인: 불법 건축물 여부(위반건축물)를 확인해야 전세자금대출이나 보증보험 가입 시 불이익을 피할 수 있습니다.",
+    "8. 정확한 소재지 기재: 등기부등본상의 주소와 계약서상의 소재지를 토씨 하나 틀리지 않고 정확하게 기재해야 합니다.",
+    "9. 임대할 부분 명시: 건물 전체가 아닌 일부를 임대할 경우 층수, 호수, 면적을 정확히 기재합니다.",
+    "10. 주거용/비주거용 구분: 공부상 용도와 실제 용도가 다를 경우 실제 용도를 기준으로 계약서를 작성하는 것이 유리할 수 있습니다.",
+    "11. 전세/월세 명확화: 계약 형태가 전세인지 월세인지 체크박스 또는 텍스트로 명확히 표시합니다.",
+    "12. 금액 한글/숫자 병기: 보증금과 차임(월세) 금액은 한글과 숫자를 함께 기재합니다.",
+    "13. 계약금 비율: 통상 보증금의 5~10%를 계약금으로 설정하며, 지급 시 영수증을 받습니다.",
+    "14. 중도금 지급 약정: 중도금 지급 시기(날짜)를 명확히 기재하고, 지급 후에는 임대인이 일방적으로 해제할 수 없습니다.",
+    "15. 잔금 지급일: 잔금은 입주와 동시에 지급하는 것이 원칙이며 날짜를 명확히 기재합니다.",
+    "16. 차임 지급 시기: 월세의 경우 선불/후불 여부와 매월 지급일을 구체적으로 정합니다.",
+    "17. 계좌 이체 원칙: 보증금·월세는 반드시 임대인 명의 계좌로 이체하여 기록을 남깁니다.",
+    "18. 임대차 기간 명시: 시작일과 종료일을 정확한 날짜로 기재합니다.",
+    "19. 최단 존속 기간: 2년 미만으로 정해도 임차인은 2년을 주장할 수 있습니다(주임법 제4조).",
+    "20. 묵시적 갱신: 만료 6개월~2개월 전 갱신 거절이 없으면 동일조건으로 갱신됩니다(주임법 제6조).",
+    "21. 계약갱신요구권: 임차인은 1회에 한해 2년 갱신을 요구할 수 있습니다(주임법 제6조의3).",
+    "22. 사용·수익 상태 제공: 임대인은 목적물을 사용·수익할 수 있는 상태로 인도해야 합니다.",
+    "23. 선관주의 의무: 임차인은 선량한 관리자의 주의로 주택을 보존해야 합니다.",
+    "24. 용도 외 사용 금지: 구조 변경 또는 용도 변경은 임대인 동의 없이는 불가합니다.",
+    "25. 전대차 제한: 임차인은 임대인의 동의 없이 전대하거나 양도할 수 없습니다.",
+    "26. 수선 유지 의무: 주요 설비 수리는 임대인, 소모품 교체는 임차인의 의무입니다.",
+    "27. 차임 연체로 인한 해지: 2기 연체 시 임대인은 즉시 해지할 수 있습니다.",
+    "28. 중도 해지: 원칙적으로 중도 해지는 불가하며, 합의 해지 시 중개수수료 부담을 특약으로 정합니다.",
+    "29. 원상회복 의무: 계약 종료 시 임차인은 원상회복 후 반환해야 합니다.",
+    "30. 보증금 반환 동시이행: 보증금 반환과 주택 반환은 동시에 이루어져야 합니다.",
+    "31. 배액 배상: 임대인이 중도금 지급 전 계약을 해제하려면 계약금의 배액을 반환해야 합니다.",
+    "32. 계약금 포기: 임차인이 중도금 지급 전 계약을 해제하려면 계약금을 포기해야 합니다.",
+    "33. 근저당 말소 특약: 잔금 지급 시까지 근저당권 말소 또는 잔금일 익일까지 등기 상태 유지 특약을 넣습니다.",
+    "34. 전세자금대출 특약: 대출 불가 시 계약 무효 및 계약금 반환 특약을 기재합니다.",
+    "35. 장기수선충당금: 임차인이 대납하고 퇴거 시 임대인이 정산하여 반환하는 방식으로 특약을 둡니다.",
+    "36. 반려동물 특약: 사육 가능 여부와 원상복구 범위를 구체적으로 기재합니다.",
+    "37. 입주 청소/도배/장판: 시공 여부 및 비용 부담 주체를 특약에 명시합니다.",
+    "38. 옵션 상태 확인: 옵션 품목의 작동 여부 확인 및 수리 책임 범위를 정합니다.",
+    "39. 공과금 정산: 입주 전 공과금은 임대인이, 입주 후는 임차인이 부담함을 명시합니다.",
+    "40. 대리인 계약 특약: “소유자 OOO의 대리인 OOO와의 계약임”을 특약에 명시합니다.",
+    "41. 주택 인도: 이사(점유)를 해야 대항력이 발생합니다.",
+    "42. 전입신고: 이사 당일 전입신고해야 다음 날 0시부터 대항력이 생깁니다.",
+    "43. 확정일자: 계약 직후 확정일자를 받아야 우선변제권을 확보합니다.",
+    "44. 전월세 신고제: 보증금 6천만 원 또는 월세 30만 원 초과 시 30일 내 신고해야 합니다.",
+    "45. 서명 및 날인: 임대인·임차인의 이름, 주소, 주민번호를 기재하고 서명 또는 날인합니다.",
+    "46. 간인: 계약서 여러 장은 간인을 하여 위조를 방지합니다.",
+    "47. 연락처 교환: 실제 연락 가능한 전화번호를 계약서에 기재합니다.",
+    "48. 계좌번호 기재: 보증금 반환 계좌번호를 특약 또는 하단에 기재하면 편리합니다.",
+    "49. 계약서 보관: 임대인·임차인·중개사가 각각 1부씩 보관합니다.",
+    "50. 분쟁 해결 기준: 명시되지 않은 사항은 민법·주임법·관례에 따릅니다.",
+    "51. 대리인을 포함한 계약이라면 특약사항에 대리계약임을 명시하는 것이 좋다."
 ]
 
 # RAG 임계값 (필요시 조정)
@@ -175,7 +220,7 @@ async def get_smart_extraction(
     [규칙]
     1. `filled_fields`의 key는 템플릿 변수명과 일치해야 합니다.
     2. [날짜]는 년(y), 월(m), 일(d) 변수로 분리하여 저장해야 합니다. (예: 2024-10-25 -> _y:2024, _m:10, _d:25)
-    3. [체크박스] 전세/월세는 변수에 "☒" 또는 "☐"로 채워야 합니다.
+    3. [체크박스] 전세/월세는 변수에 true 또는 false로 채워야 합니다.
     4. [스킵] 스킵하는 필드(예: 전세일 때 월세 관련 필드)는 빈 문자열 ""을 채워야 합니다.
     5. 사용자가 법률적 질문을 하면 `status`를 "rag_required"로 반환하세요.
     
@@ -188,7 +233,7 @@ async def get_smart_extraction(
     # [분기 1: 계약 종류] (전세 vs 월세)
     if field_id == "contract_type":
         # 전세 선택 시: 월세 관련 질문(monthly_rent_info) 1개 스킵 + 변수 비우기
-        jeonse_skip_fields = {"c_wag": "__SKIPPED__", "c_d": "__SKIPPED__", "payment": "__SKIPPED__"} 
+        jeonse_skip_fields = {"c_wag": "", "c_d": "", "payment": ""} 
         
         # 월세 선택 시: 스킵 없음
         monthly_skip_fields = {} # 월세는 다 물어봐야 함
@@ -197,12 +242,12 @@ async def get_smart_extraction(
         [예시 1: 전세 선택 (월세 질문 스킵)]
         question: "{question}"
         user_message: "전세 계약입니다."
-        AI: {{"status": "success", "filled_fields": {{"charter": "☒", "mntly": "☐", "c_wag": "__SKIPPED__", "c_d": "__SKIPPED__"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"charter": true, "mntly": false, "c_wag": "", "c_d": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 2: 월세 선택 (스킵 없음)]
         question: "{question}"
         user_message: "월세로 하려고요."
-        AI: {{"status": "success", "filled_fields": {{"charter": "☐", "mntly": "☒"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"charter": false, "mntly": true}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     # -----------------------------------------------------------
@@ -212,9 +257,9 @@ async def get_smart_extraction(
         # 대리인 없음 -> 관련 필드 3개 스킵 처리
         no_agent_fields = {
             "lessor_agn": "없음", # 제어용 값
-            "les_agn_add": "__SKIPPED__",
-            "les_agn_num": "__SKIPPED__",
-            "les_agn_name": "__SKIPPED__"
+            "les_agn_add": "",
+            "les_agn_num": "",
+            "les_agn_name": ""
         }
         # 대리인 있음 -> 단순히 "있음"만 기록하고 다음 질문으로 진행
         yes_agent_fields = {"lessor_agn": "있음"}
@@ -238,9 +283,9 @@ async def get_smart_extraction(
         # 대리인 없음 -> 관련 필드 3개 스킵 처리
         no_agent_fields = {
             "less_agn": "없음", # 제어용 값
-            "less_agn_add": "__SKIPPED__",
-            "less_agn_num": "__SKIPPED__",
-            "less_agn_name": "__SKIPPED__"
+            "less_agn_add": "",
+            "less_agn_num": "",
+            "less_agn_name": ""
         }
         # 대리인 있음
         yes_agent_fields = {"less_agn": "있음"}
@@ -256,7 +301,21 @@ async def get_smart_extraction(
         user_message: "네, 있습니다."
         AI: {{"status": "success", "filled_fields": {json.dumps(yes_agent_fields)}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
-
+    
+    # [보증금]
+    elif field_id == "deposit":
+        specific_examples = f"""
+        user_message: "백만원 입니다."
+        AI: {{"status": "success", "filled_fields": {{"deposit": "100만원", "deposit_num": "1,000,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
+    # [계약금, 영수자]
+    elif field_id == "con_dep":
+        specific_examples = f"""
+        user_message: "백만원을 홍길동에게 지급할 것 입니다."
+        AI: {{"status": "success", "filled_fields": {{"con_dep": "100만원", "con_dep_recipient": "홍길동"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        """
+        
     # [복합 정보: 중도금] (금액 + 날짜 분리)
     elif field_id == "middle_payment_info":
         specific_examples = f"""
@@ -272,8 +331,20 @@ async def get_smart_extraction(
     # [복합 정보: 잔금] (금액 + 날짜 분리)
     elif field_id == "balance_payment_info":
         specific_examples = f"""
+        [예시 1: 금액과 날짜를 모두 언급한 경우]
+        question: "{question}"
         user_message: "나머지 1억은 입주하는 날인 2024년 6월 30일에 줍니다."
-        AI: {{"status": "success", "filled_fields": {{"re_dep": "100,000,000", "re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"re_dep": "100,000,000", re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        
+        [예시 2: 금액만 언급한 경우 (날짜 재질문 유도)]
+        question: "{question}"
+        user_message: "1억 입니다."
+        AI: {{"status": "clarify", "filled_fields": {{"re_dep": "100,000,000"}}, "skip_next_n_questions": 0, "follow_up_question": "잔금지급 날짜도 알려주세요."}}
+        
+        [예시 3: 날짜만 언급한 경우 (금액 재질문 유도)]
+        question: "{question}"
+        user_message: "2024.6.30일 입니다."
+        AI: {{"status": "clarify", "filled_fields": {{"re_y": "2024", "re_m": "6", "re_d": "30"}}, "skip_next_n_questions": 0, "follow_up_question": "잔금 금액도 알려주세요."}}
         """
 
     # [복합 정보: 월세] (금액 + 날짜 분리)
@@ -373,7 +444,7 @@ def find_next_question(current_content: Dict[str, Any]) -> Tuple[Optional[Dict],
             continue
         if field_id == "middle_payment_info" and ("med_dep" in current_content or "m_y" in current_content):
             continue
-        if field_id == "balance_payment_info" and ("re_dep" in current_content or "re_y" in current_content):
+        if field_id == "balance_payment_info" and ("re_dep" in current_content and "re_y" in current_content):
             continue
         if field_id == "monthly_rent_info" and ("c_wag" in current_content or "payment" in current_content):
             continue
@@ -506,8 +577,40 @@ async def process_message(
     for _ in range(skip_n):
         _, idx = find_next_question(content) 
         if idx < len(CONTRACT_SCENARIO):
-            content[CONTRACT_SCENARIO[idx]["field_id"]] = "__SKIPPED__"
+            content[CONTRACT_SCENARIO[idx]["field_id"]] = ""
     
+    # -----------------------------------------------------------
+    # ❗️ [핵심 수정] 다음 질문을 먼저 계산
+    # -----------------------------------------------------------
+    next_item, _ = find_next_question(content)
+    
+    # 현재 질문과 다음 질문이 달라졌는지 확인 (질문 통과 여부)
+    # current_item이 존재하고, next_item이 존재하며, ID가 다르면 통과한 것임
+    # 또는 next_item이 None이면(완료) 통과한 것임
+    is_moved_to_next = False
+    if current_item:
+        if next_item is None:
+            is_moved_to_next = True
+        elif current_item["field_id"] != next_item["field_id"]:
+            is_moved_to_next = True
+            
+    # -----------------------------------------------------------
+    # ❗️ [핵심 수정] 재질문(Clarify) 처리 조건 변경
+    # -----------------------------------------------------------
+    # AI가 '재질문'을 요청했더라도, 이미 조건을 충족해서 다음 질문으로 넘어갔다면(is_moved_to_next),
+    # 재질문을 무시하고 다음 질문을 던집니다.
+    # -----------------------------------------------------------
+    if not is_moved_to_next and ai_result.get("status") == "clarify":
+        follow_up_q = ai_result["follow_up_question"]
+        new_chat_history.append({"sender": "bot", "message": follow_up_q})
+        return schemas.ChatResponse(
+            reply=follow_up_q,
+            updated_field=None,
+            is_finished=False,
+            full_contract_data=content,
+            chat_history=new_chat_history
+        )
+    '''
     # 재질문(clarify) 처리
     if ai_result.get("status") == "clarify":
         follow_up_q = ai_result["follow_up_question"]
@@ -523,7 +626,7 @@ async def process_message(
 
     # 6) 다음 질문 찾기 및 반환
     next_item, _ = find_next_question(content)
-
+'''
     def make_updated_field_list(fields: Dict[str, Any]) -> Optional[List[schemas.UpdatedField]]:
         if not fields:
             return None
@@ -571,11 +674,19 @@ async def render_docx(contract):
     context = contract.content or {}
     
     # '__SKIPPED__' 플래그 제거 (렌더링 시 깨짐 방지)
-    clean_context = {
+    '''clean_context = {
         key: value 
         for key, value in context.items() 
         if value != "__SKIPPED__"
-    }
+    }'''
     
-    doc.render(clean_context)
+    render_context = {}
+    for key, value in context.items():
+        if value is True:
+            render_context[key] = "⊠" # Wingdings 체크박스 (Checked)
+        elif value is False:
+            render_context[key] = "☐" # Wingdings 체크박스 (Unchecked)
+        else:
+            render_context[key] = value
+    doc.render(render_context)
     return doc
