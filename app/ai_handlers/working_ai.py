@@ -361,17 +361,32 @@ async def get_smart_extraction(
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
-    elif field_id == "bonus_amount": # ⭐️ 새로 추가된 필드
+    elif field_id == "bonus_amount": # ⭐️ 여기를 이렇게 고치세요!
         specific_examples = f"""
-        [예시 1: 금액 입력]
+        [규칙]
+        - 금액이 입력되면 '상여금 있음'으로 간주하고 관련 체크박스(is_bonus_paid_yes_o)도 함께 "O"로 설정하세요.
+        
+        [예시 1: 금액 입력 -> 금액 + '있음' 체크 동시 수행]
         question: "{question}"
         user_message: "50만원입니다"
-        AI: {{"status": "success", "filled_fields": {{"bonus_amount": "500,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "500,000",
+            "bonus_yes": true,
+            "bonus_none": false,
+            "is_bonus_paid_yes_o": "O", 
+            "is_bonus_paid_no_o": " "
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
         [예시 2: 금액 입력 (단위 생략)]
         question: "{question}"
         user_message: "1200000"
-        AI: {{"status": "success", "filled_fields": {{"bonus_amount": "1,200,000"}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "1,200,000",
+            "bonus_yes": true,
+            "bonus_none": false,
+            "is_bonus_paid_yes_o": "O", 
+            "is_bonus_paid_no_o": " "
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
     elif field_id == "Weekly_Paid_Holiday":
@@ -813,7 +828,19 @@ async def process_message(
     # updated_key는 폼 답변 성공 시에만 정의되므로, 
     # 'if next_item:' 블록 밖으로 이동시키거나 안전하게 처리합니다.
     #updated_key = list(new_fields.keys())[0] if new_fields else None
-    updated_key = current_field_id
+    updated_key = list(new_fields.keys())[0] if (current_item and new_fields) else None
+    updated_field_list = []
+    
+    # 1. 키가 있고, 실제로 딕셔너리에 그 키가 존재하는지 확인 (안전장치)
+    if updated_key and updated_key in new_fields:
+        updated_field_list = [{
+            "field_id": updated_key,
+            "value": str(new_fields[updated_key]) # 안전하게 문자열 변환
+        }]
+    # 2. new_fields가 비어있지만 스킵 등으로 넘어가는 경우
+    elif not new_fields and current_item:
+         # 필요한 경우 빈 값 처리 (현재는 리스트 비워둠)
+         pass
 
     ################################################################
     # 기본 답변 설정 (다음 질문이 있으면 질문, 없으면 완료 메시지)
@@ -823,7 +850,6 @@ async def process_message(
     # ✅ [2] 실시간 검증 & 메시지 합치기 (Validation)
     # -----------------------------------------------------------
     warning_prefix = "" # 경고 메시지를 담을 변수
-
     # (A) 휴게시간 검증
     if current_field_id == "rest_time":
         rest_val = str(content.get("rest_time", "")).strip()
@@ -885,25 +911,19 @@ async def process_message(
     if next_item:
         return schemas.ChatResponse(
             reply=final_reply,
-            updated_field=[{
-                "field_id": updated_key,
-                "value": str(updated_value) # ⭐️ .get()을 사용했으므로 에러가 나지 않음
-            }] if updated_key else [],            
+            updated_field=updated_field_list, # ⭐️ 미리 만든 안전한 리스트 사용
             is_finished=False,
             full_contract_data=content,
-            chat_history=new_chat_history
+            chat_history=new_chat_history 
         )
 
     else:
         return schemas.ChatResponse(
             reply="모든 항목이 작성되었습니다.",
-            updated_field=[{
-                "field_id": updated_key,
-                "value": str(updated_value) # ⭐️ 여기도 수정
-            }] if updated_key else None,
+            updated_field=updated_field_list, # ⭐️ 미리 만든 안전한 리스트 사용
             is_finished=True,
             full_contract_data=content,
-            chat_history=new_chat_history
+            chat_history=new_chat_history 
         )
 
 
