@@ -35,7 +35,7 @@ app = FastAPI(lifespan=lifespan)
 # CORS 미들웨어 설정
 # 프론트엔드 주소 (예: http://localhost:3000) 에서 오는 요청을 허용합니다.
 origins = [
-    "http://localhost:5173",
+    "https://knu-capstone-1.vercel.app/",
     "http://127.0.0.1:5173"
 ]
 
