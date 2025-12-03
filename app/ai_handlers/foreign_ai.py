@@ -264,12 +264,12 @@ async def get_smart_extraction(
     # [성별] -> 체크박스로 변환
     elif field_id == "sex":
         specific_examples = """
-        [예시 1: '남' 선택(HTML: true, DOCX: ☒)]
+        [예시 1: '남' 선택]
         question: "성별을 알려주세요. (남 / 여)"
         user_message: "남자입니다"
         AI: {{"status": "success", "filled_fields": {{"sex_m_check": true, "sex_f_check": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '여' 선택(HTML: true, DOCX: ☒)]
+        [예시 2: '여' 선택]
         question: "성별을 알려주세요. (남 / 여)"
         user_message: "여자"
         AI: {{"status": "success", "filled_fields": {{"sex_m_check": false, "sex_f_check": true}}, "skip_next_n_questions": 0, "follow_up_question": null}}
@@ -500,7 +500,7 @@ async def get_smart_extraction(
         [예시 2: '미취학' 선택]
         question: "{question}"
         user_message: "미취학입니다"
-        AI: {{"status": "success", "filled_fields": {{"non": true, "ele": false, "mid": false, "hi": false}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+        AI: {{"status": "success", "filled_fields": {{"non": true, "ele": false, "mid": false, "hi": false, "ac": false, "no_ac": false, "alt": false, "school_name": "", "school_phone": ""}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
         print("select school status")
         

@@ -37,7 +37,8 @@ app = FastAPI(lifespan=lifespan)
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://knu-capstone-1.vercel.app"
+    "https://knu-capstone-1.vercel.app",
+    "https://knucapstone1.vercel.app"
 ]
 
 app.add_middleware(
