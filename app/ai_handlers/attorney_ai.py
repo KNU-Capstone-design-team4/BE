@@ -14,7 +14,9 @@ import xml.etree.ElementTree as ET
 from urllib.parse import unquote
 
 ##행정안전부 ##배포하면 다시 발급받아야함
-REAL_JUSO_API_KEY = os.environ.get("JUSO_API_KEY", "devU01TX0FVVEgyMDI1MTEyNDAxMTcyOTExNjQ4NDk=")
+REAL_JUSO_API_KEY = os.environ.get("JUSO_API_KEY", "devU01TX0FVVEgyMDI1MTIwNDIwMzIwMTExNjUzNDc=")
+#################devU01TX0FVVEgyMDI1MTEyNDAxMTcyOTExNjQ4NDk=###################
+
 ##국토교통부
 BUILDING_API_KEY = os.environ.get("BUILDING_API_KEY", "283c37c89ec3aac9cd025a29d0b73c7d075be291b3ebe3b1b26de62794719038")
 BUILDING_API_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo"
