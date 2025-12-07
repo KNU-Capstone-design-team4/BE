@@ -180,11 +180,16 @@ async def get_rag_response(question: str, relevant_tips: str) -> str:
     today = datetime.date.today()
     current_date_str = today.strftime('%Y년 %m월 %d일')
     system_prompt = f"""
-오늘은 {current_date_str}입니다.
-당신은 '근로계약 전문가 AI 상담관'입니다.
-주어진 팁만을 기반으로 답변하세요.
-만약 질문에 대한 답변이 [참고 자료]에 명확히 나와있지 않다면,
-       "죄송합니다. 현재 제공된 참고 자료에는 해당 정보가 포함되어 있지 않습니다."라고 솔직하게 답변하세요.
+    오늘은 {current_date_str}입니다.
+    당신은 '근로계약 전문가 AI 상담관'입니다.
+    
+    [답변 생성 규칙]
+    1. 아래 제공된 [참고 자료]를 **최우선**으로 검토하여 답변을 생성하세요.
+    2. 질문의 내용이 [참고 자료]에 명확히 포함되어 있다면, 그 내용을 바탕으로 신뢰성 있게 답변하세요.
+    3. 만약 질문 내용이 [참고 자료]에 없다면, 당신이 가진 일반적인 AI 지식을 활용하여 답변하세요.
+       단, 이 경우 **반드시 답변의 맨 뒤에 아래 문구를 붙여야 합니다.**
+       
+       "[참고 자료에 없는 내용입니다. 일반적인 AI 지식에 기반하여 답변합니다.]"
 
 --- 참고 자료 ---
 {relevant_tips}
@@ -702,8 +707,8 @@ async def process_message(
             )
 
     # 공통 채팅 기록 저장 (봇 질문이 있었을 때만 저장)
-    if current_bot_question:
-        new_chat_history.append({"sender": "bot", "message": current_bot_question})
+    # if current_bot_question:
+    #     new_chat_history.append({"sender": "bot", "message": current_bot_question})
     
     new_chat_history.append({"sender": "user", "message": message})
     
