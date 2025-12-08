@@ -49,7 +49,7 @@ async def signup(new_user: UserSignUp):
         user_id = res.user.id  # auth.users.id (UUID)
 
         # 2. profiles 테이블에 추가 정보 삽입 (결과 변수 안 받음)
-        supabase.table("profiles").insert({
+        supabase.table("profiles").upsert({
             "id": user_id,
             "username": new_user.username,
             "name": new_user.name,
