@@ -27,7 +27,7 @@ CONTRACT_SCENARIO= [
     {"field_id": "employee_phone", "question": "근로자의 연락처(전화번호)를 입력해주세요."},
     # 2. 계약 기간 및 장소
     {"field_id": "start_date_full", "question": "실제 근로를 시작하는 날(근로개시일)은 언제인가요? (예: 2025년 11월 1일)"},
-    {"field_id": "work_location", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요. (예: 사업장과 동일)"},
+    {"field_id": "work_location", "question": "근무하게 될 실제 장소(근무장소)를 알려주세요."},
     {"field_id": "job_description", "question": "근로자가 수행할 업무 내용(직종)은 무엇인가요? (예: 사무 보조 및 서류 정리)"},
 
     # 3. 근로시간 및 휴일
@@ -217,7 +217,7 @@ async def get_rag_response(question: str, relevant_tips: str) -> str:
     1. 아래 제공된 [참고 자료]를 **최우선**으로 검토하여 답변을 생성하세요.
     2. 질문의 내용이 [참고 자료]에 명확히 포함되어 있다면, 그 내용을 바탕으로 신뢰성 있게 답변하세요.
     3. 만약 질문 내용이 [참고 자료]에 없다면, 당신이 가진 일반적인 AI 지식을 활용하여 답변하세요.
-       단, 이 경우 **반드시 답변의 맨 뒤에 아래 문구를 붙여야 합니다.**
+       단, 이 경우 반드시 답변의 맨 뒤에 아래 문구를 붙여야 합니다.
        
        "[참고 자료에 없는 내용입니다. 일반적인 AI 지식에 기반하여 답변합니다.]"
 
@@ -607,6 +607,21 @@ async def get_smart_extraction(
         question: "하루 근로를 마치는 시간(종업 시간)을 알려주세요. (예: 18:00)"
         user_message: "저녁 6시요."
         AI: {{"status": "success", "filled_fields": {{"end_time": "18:00"}}, "skip_next_n_questions": 0, "follow_up_question": null}}  
+
+        [예시 4: 질문이나 상담을 요청하는 경우 ]
+        question: "{question}"
+        user_message: "가명으로 써도 되나요?"
+        AI: {{"status": "rag_required", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 4: 질문이나 상담을 요청하는 경우 ]
+        question: "{question}"
+        user_message: "근무장소랑 사업장 주소랑 달라도 돼?"
+        AI: {{"status": "rag_required", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 5: 법적 기준을 묻는 경우 (RAG 모드 전환)]
+        question: "{question}"
+        user_message: "이 항목은 꼭 적어야 하나요?"
+        AI: {{"status": "rag_required", "filled_fields": {{}}, "skip_next_n_questions": 0, "follow_up_question": null}}
         """
     
 
