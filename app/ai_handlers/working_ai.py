@@ -373,7 +373,18 @@ async def get_smart_extraction(
             "is_bonus_paid_no_o": " "
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: '없음' 선택]
+       [예시 2: '있음'만 답변 (금액 미포함) -> ⭐️ 금액 필드 제거/비움]
+        question: "{question}"
+        user_message: "네 지급됩니다"
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_yes": true,
+            "bonus_none": false,
+            "is_bonus_paid_yes_o": "O",
+            "is_bonus_paid_no_o": " "
+            // ⭐️ bonus_amount를 비워둠 -> 그래야 다음 질문(금액)이 나옴
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 3: '없음' 선택]
         question: "{question}"
         user_message: "아니요 없습니다"
         AI: {{"status": "success", "filled_fields": {{
@@ -384,7 +395,7 @@ async def get_smart_extraction(
             "is_bonus_paid_no_o": "O"
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 3: '없음' 선택 (단답형/반말 - '아니.', '없어')]
+        [예시 4: '없음' 선택 (단답형/반말 - '아니.', '없어')]
         question: "{question}"
         user_message: "아니."
         AI: {{"status": "success", "filled_fields": {{
@@ -399,9 +410,26 @@ async def get_smart_extraction(
     elif field_id == "bonus_amount": # ⭐️ 여기를 이렇게 고치세요!
         specific_examples = f"""
         [규칙]
-        - 금액이 입력되면 '상여금 있음'으로 간주하고 관련 체크박스(is_bonus_paid_yes_o)도 함께 "O"로 설정하세요.
+        1.금액이 입력되면 '상여금 있음'으로 간주하고 관련 체크박스(is_bonus_paid_yes_o)도 함께 "O"로 설정하세요.
+        2. 사용자가 '30000', '500000' 처럼 숫자만 입력해도 즉시 금액으로 인식하고 저장하세요.
+        3. 단위(원, 만원)가 없어도 숫자가 포함되어 있으면 금액으로 간주합니다.
+        4. 금액이 입력되면 자동으로 **'상여금 있음' 체크박스(is_bonus_paid_yes_o)를 "O"로 설정하세요.
+        5. 정보가 충분하므로 절대 되묻지 말고 `status: "success"`를 반환하세요.
+        6. 사용자가 '30000', '50만' 처럼 **숫자만 입력하더라도** 즉시 금액으로 인식하고 '성공(success)' 처리하십시오.
+        7. 절대 "상여금이 지급되나요?" 또는 "있음/없음으로 대답해주세요"라고 **되묻지 마십시오.**
         
-        [예시 1: 금액 입력 -> 금액 + '있음' 체크 동시 수행]
+        [예시 1: 숫자만 입력된 경우 (핵심)]
+        question: "{question}"
+        user_message: "30000"
+        AI: {{"status": "success", "filled_fields": {{
+            "bonus_amount": "30,000",
+            "bonus_yes": true,
+            "bonus_none": false,
+            "is_bonus_paid_yes_o": "O", 
+            "is_bonus_paid_no_o": " "
+        }}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
+        [예시 2: 금액 입력 -> 금액 + '있음' 체크 동시 수행]
         question: "{question}"
         user_message: "50만원입니다"
         AI: {{"status": "success", "filled_fields": {{
@@ -412,7 +440,7 @@ async def get_smart_extraction(
             "is_bonus_paid_no_o": " "
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
 
-        [예시 2: 금액 입력 (단위 생략)]
+        [예시 3: 금액 입력 (단위 생략)]
         question: "{question}"
         user_message: "1200000"
         AI: {{"status": "success", "filled_fields": {{
@@ -422,6 +450,7 @@ async def get_smart_extraction(
             "is_bonus_paid_yes_o": "O", 
             "is_bonus_paid_no_o": " "
         }}, "skip_next_n_questions": 0, "follow_up_question": null}}
+
         """
     
     elif field_id == "Weekly_Paid_Holiday":
